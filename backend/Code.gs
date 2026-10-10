@@ -289,20 +289,21 @@ function ringkasData(d) {
 }
 
 function catatLog(user, aksi) {
+  // Tanpa kunci: appendRow atomik. Versi lama memakai denganKunci di sini
+  // sehingga macet (lock timeout) bila dipanggil dari dalam fungsi yang
+  // sudah memegang kunci — mis. masuk() dan simpanPengguna_().
   try {
-    denganKunci(function () {
-      var sh = sheetTabel('Log');
-      var judul = judulKolom(sh);
-      var bar = judul.map(function (j) {
-        if (j === 'id') return Utilities.getUuid().replace(/-/g, '').slice(0, 10);
-        if (j === 'dibuat' || j === 'waktu') return new Date().toISOString();
-        if (j === 'diubah') return '';
-        if (j === 'siapa') return (user.nama || user.username) + ' (' + user.peran + ')';
-        if (j === 'aksi') return String(aksi).slice(0, 300);
-        return '';
-      });
-      sh.appendRow(bar);
+    var sh = sheetTabel('Log');
+    var judul = judulKolom(sh);
+    var bar = judul.map(function (j) {
+      if (j === 'id') return Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+      if (j === 'dibuat' || j === 'waktu') return new Date().toISOString();
+      if (j === 'diubah') return '';
+      if (j === 'siapa') return (user.nama || user.username) + ' (' + user.peran + ')';
+      if (j === 'aksi') return String(aksi).slice(0, 300);
+      return '';
     });
+    sh.appendRow(bar);
   } catch (e) { /* log tidak boleh menggagalkan transaksi */ }
 }
 
