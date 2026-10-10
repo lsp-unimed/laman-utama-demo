@@ -132,7 +132,7 @@
     const x = d[7] || {}, y = (d[3] || HARI_INI).slice(0, 4);
     if (!x.kode) seq[d[0]] = (seq[d[0]] || 0) + 1;
     return Object.assign({ id: i + 1, kode: x.kode || `LSP-UNIMED/${d[0]}/${pad(seq[d[0]])}/${y}`, kat: d[0], judul: d[1], pemilik: d[2], terbit: d[3], sampai: d[4], status: d[5], rev: d[6],
-      berkas: d[1].replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40) + '.pdf', file_id: x.file_id || '', file_url: x.file_url || '' }, x.surat ? { surat: true, alur: x.alur } : {}, x.tpl ? { tpl: x.tpl } : {});
+      berkas: d[1].replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40) + '.pdf', file_id: x.file_id || '', file_url: x.file_url || '', riwayat: [] }, x.surat ? { surat: true, alur: x.alur } : {}, x.tpl ? { tpl: x.tpl } : {});
   });
 
   // Surat masuk
@@ -662,7 +662,9 @@
     const d = DOCS.find(x => x.id === id), s = status(d);
     if (!bolehLihatKat(d.kat)) { drawer('<h2>Akses terbatas</h2><p class="muted">Dokumen kategori ini tidak dapat dibuka oleh peran Anda.</p>'); return; }
     const bisaUbah = bolehUbahKat(d.kat);
-    const vers = Array.from({ length: d.rev }, (_, i) => d.rev - i).map(r => `<div><b>Revisi ${r}${r === d.rev ? ' (berlaku)' : ''}</b><span class="muted">${r === d.rev ? tgl(d.terbit || HARI_INI) : 'Diganti oleh revisi ' + (r + 1)}</span></div>`).join('');
+    d.riwayat = d.riwayat || [];
+    const infoRev = (r) => d.riwayat.find(x => x.rev === r) || null;
+    const vers = Array.from({ length: d.rev }, (_, i) => d.rev - i).map(r => { const info = infoRev(r); return `<div><b>Revisi ${r}${r === d.rev ? ' (berlaku)' : ''}</b><span class="muted">${r === d.rev ? tgl(d.terbit || HARI_INI) : 'Diganti oleh revisi ' + (r + 1)}</span>${info && info.catatan ? `<div style="font-size:.84rem;margin-top:2px">Catatan: ${esc(info.catatan)}</div>` : ''}${info && info.file_url ? `<div style="font-size:.82rem"><a href="${esc(info.file_url)}" target="_blank" rel="noopener">Buka berkas revisi ${r}</a></div>` : ''}</div>`; }).join('');
     let aksi = '';
     if (d.surat) {
       const i = ALUR.indexOf(d.alur);
@@ -773,8 +775,11 @@
         } else if (fl && file_url) { file_nama = fl.nama; }
       } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = 'Simpan revisi ' + (d.rev + 1); return; }
       if (!file_url && !file_nama) { toast('Pilih berkas atau isi tautan Drive.'); btn.disabled = false; btn.textContent = 'Simpan revisi ' + (d.rev + 1); return; }
+      const catatan = f.catatan.value.trim();
+      d.riwayat = d.riwayat || [];
       Object.assign(d, { rev: d.rev + 1, terbit: HARI_INI, berkas: file_nama || d.berkas, file_id, file_url });
-      catat('Mengunggah revisi ' + d.rev + ' ' + d.kode + (f.catatan.value.trim() ? ' — ' + f.catatan.value.trim() : ''));
+      d.riwayat.push({ rev: d.rev, tanggal: HARI_INI, oleh: PERAN_AKTIF, catatan, file_id, file_nama: file_nama || d.berkas, file_url });
+      catat('Mengunggah revisi ' + d.rev + ' ' + d.kode + (catatan ? ' — ' + catatan : ''));
       tutupDrawer(); toast('Revisi ' + d.rev + ' tersimpan: ' + d.kode); shell(); detail(id);
     };
   }
