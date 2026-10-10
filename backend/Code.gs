@@ -45,7 +45,7 @@ function ss_() {
 // ===================== SKEMA =====================
 var SKEMA = {
   Dokumen: {
-    kolom: ['kode', 'kat', 'judul', 'pemilik', 'terbit', 'sampai', 'status', 'rev', 'alur', 'surat', 'tpl_id', 'tpl_data', 'file_id', 'file_nama', 'ket'],
+    kolom: ['kode', 'kat', 'judul', 'pemilik', 'terbit', 'sampai', 'status', 'arsip', 'rev', 'alur', 'surat', 'tpl_id', 'tpl_data', 'file_id', 'file_nama', 'ket'],
     publik: [],
     aturan: {
       kode:  { wajib: true, maks: 80, pesan: 'Kode/nomor dokumen wajib diisi.' },

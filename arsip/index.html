@@ -153,6 +153,10 @@
   const bolehSahkan = () => kunciPeran() === 'Ketua';
   const bolehKelolaKop = () => ['Ketua', 'Admin', 'Sekretariat'].includes(kunciPeran());
   const bolehCatatMasuk = () => ['Admin', 'Sekretariat', 'Ketua'].includes(kunciPeran());
+  // Kepemilikan: cocokkan kata terakhir penanggung jawab dgn bagian peran (mis. "Sertifikasi" = "Bidang Sertifikasi").
+  const milikSaya = (d) => { const b = bagianSaya(), p = d && d.pemilik; if (!b || !p) return false; const lw = (s) => String(s).toLowerCase().split(/[^a-z]+/).filter(Boolean).pop(); return lw(b) === lw(p); };
+  // Hapus & arsip: Admin/Sekretariat (+Ketua) semua kategori; peran lain hanya dokumen miliknya di kategori yg boleh diubah.
+  const bolehKelolaArsip = (d) => { const k = kunciPeran(); if (['Admin', 'Sekretariat', 'Ketua'].includes(k)) return bolehUbahKat(d.kat); return bolehUbahKat(d.kat) && milikSaya(d); };
   const dispUntukSaya = () => { const b = bagianSaya(); return SM.filter(s => s.status !== 'Selesai' && s.disp.some(x => x.ke.includes(b))); };
   const dispLewatBatas = () => SM.filter(s => s.status !== 'Selesai' && s.disp.some(x => x.batas && x.batas < HARI_INI));
   let AGENDA = [
@@ -251,14 +255,15 @@
 
   function shell() {
     const katLihat = KAT.filter(k => bolehLihatKat(k[0]));
-    const n = (k) => DOCS.filter(d => d.kat === k).length;
-    const reminders = DOCS.filter(d => bolehLihatKat(d.kat) && ['warn', 'bad'].includes(status(d)[1])).length;
+    const n = (k) => DOCS.filter(d => d.kat === k && !d.arsip).length;
+    const reminders = DOCS.filter(d => !d.arsip && bolehLihatKat(d.kat) && ['warn', 'bad'].includes(status(d)[1])).length;
     const smBuka = SM.filter(s => s.status !== 'Selesai').length, skTunggu = DOCS.filter(d => d.surat && d.alur === 'Diajukan').length;
     const tugasSaya = dispUntukSaya().length + (bolehSahkan() ? skTunggu : 0);
     app.innerHTML = `<div class="shell"><aside class="side" id="side">
       <div class="brand"><img src="../assets/img/logo-lsp.png" alt=""><div><b>Arsip Dokumen</b><span>LSP UNIMED</span></div></div>
       <button data-v="ringkasan">Ringkasan${tugasSaya ? ` <span class="n hot">${tugasSaya}</span>` : ''}</button>
-      <button data-v="dokumen" data-k="">Semua dokumen <span class="n">${DOCS.filter(d => bolehLihatKat(d.kat)).length}</span></button>
+      <button data-v="dokumen" data-k="">Semua dokumen <span class="n">${DOCS.filter(d => bolehLihatKat(d.kat) && !d.arsip).length}</span></button>
+      <button data-v="arsip">Dokumen arsip <span class="n">${DOCS.filter(d => bolehLihatKat(d.kat) && d.arsip).length}</span></button>
       <button data-v="pengingat">Pengingat <span class="n">${reminders}</span></button>
       ${peranBolehAgenda() ? '<button data-v="agenda">Agenda terdekat</button>' : ''}
       <div class="grp">Persuratan</div>
@@ -290,13 +295,13 @@
     document.querySelectorAll('.side button[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === VIEW && (VIEW !== 'dokumen' || (b.dataset.k || '') === FK)));
     const v = document.getElementById('view'), T = document.getElementById('title');
     const go = (root) => root.querySelectorAll('[data-go]').forEach(a => a.onclick = (e) => { e.preventDefault(); VIEW = a.dataset.go; FK = a.dataset.k || ''; render(); });
-    ({ ringkasan: vRingkasan, dokumen: vDokumen, pengingat: vPengingat, agenda: vAgenda, masuk: vMasuk, keluar: vKeluar, templat: vTemplat, aktivitas: vAktivitas, pengguna: vPengguna }[VIEW] || vRingkasan)(v, T);
+    ({ ringkasan: vRingkasan, dokumen: vDokumen, arsip: vArsip, pengingat: vPengingat, agenda: vAgenda, masuk: vMasuk, keluar: vKeluar, templat: vTemplat, aktivitas: vAktivitas, pengguna: vPengguna }[VIEW] || vRingkasan)(v, T);
     go(v);
   }
 
   function vRingkasan(v, T) {
     T.textContent = 'Ringkasan — ' + PERAN_AKTIF;
-    const lihat = (d) => bolehLihatKat(d.kat);
+    const lihat = (d) => !d.arsip && bolehLihatKat(d.kat);
     const warn = DOCS.filter(d => lihat(d) && status(d)[1] === 'warn'), bad = DOCS.filter(d => lihat(d) && status(d)[1] === 'bad'), draf = DOCS.filter(d => lihat(d) && d.status === 'Draf');
     const agAktif = AGENDA.slice().sort((a, b) => (a.tanggal || '9999').localeCompare(b.tanggal || '9999'))[0];
     const agSiap = agAktif ? agAktif.butir.filter(b => b[1] === 'ok').length : 0;
@@ -322,7 +327,7 @@
           <p style="margin:10px 0 0"><a href="#" data-go="agenda">Lihat semua agenda</a></p></div>` : ''}
         <div class="panel"><h2>Aktivitas terbaru</h2><ul class="list">${LOG.slice(0, 6).map(l => `<li><span>${esc(l[2])}<br><span class="muted" style="font-size:.82rem">${esc(l[1])}</span></span><span class="muted" style="font-size:.82rem;white-space:nowrap">${esc(l[0].slice(5, 10).split('-').reverse().join('/'))}</span></li>`).join('')}</ul></div>
       </div>
-      <div class="panel" style="margin-top:14px"><h2>Per kategori</h2><div class="grid g4">${KAT.filter(k => bolehLihatKat(k[0])).map(k => `<a href="#" data-go="dokumen" data-k="${k[0]}" class="katbox"><b style="font-size:1.4rem">${DOCS.filter(d => d.kat === k[0]).length}</b><div style="font-weight:700">${esc(k[1])}</div><div class="muted" style="font-size:.8rem">${esc(k[2])}</div></a>`).join('')}</div></div>`;
+      <div class="panel" style="margin-top:14px"><h2>Per kategori</h2><div class="grid g4">${KAT.filter(k => bolehLihatKat(k[0])).map(k => `<a href="#" data-go="dokumen" data-k="${k[0]}" class="katbox"><b style="font-size:1.4rem">${DOCS.filter(d => !d.arsip && d.kat === k[0]).length}</b><div style="font-weight:700">${esc(k[1])}</div><div class="muted" style="font-size:.8rem">${esc(k[2])}</div></a>`).join('')}</div></div>`;
     v.querySelectorAll('[data-sm]').forEach(li => li.onclick = () => detailMasuk(+li.dataset.sm));
     v.querySelectorAll('li[data-id]').forEach(li => li.onclick = () => detail(+li.dataset.id));
   }
@@ -334,7 +339,7 @@
     v.innerHTML = `${k ? `<p class="muted lead">${esc(k[2])} · Masa simpan: ${esc(k[3])}</p>` : ''}${!ubah && FK ? '<p class="note">Kategori ini baca-saja untuk peran Anda. Perubahan hanya oleh penanggung jawab kategori.</p>' : ''}
       ${toolbar(f, ['Berlaku', 'Segera berakhir', 'Kedaluwarsa', 'Draf'], 'Cari judul atau nomor dokumen')}
       <div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Judul</th>${FK ? '' : '<th>Kategori</th>'}<th>Terbit</th><th>Rev.</th><th>Berlaku sampai</th><th>Status</th></tr></thead><tbody id="tb"></tbody></table></div><div class="pager" id="pg"></div>`;
-    const daftar = () => DOCS.filter(d => bolehLihatKat(d.kat) && (!FK || d.kat === FK) && (!f.st || status(d)[0] === f.st) && dalamRentang(d.terbit, f) && (!f.q || (d.judul + ' ' + d.kode).toLowerCase().includes(f.q.toLowerCase())))
+    const daftar = () => DOCS.filter(d => !d.arsip && bolehLihatKat(d.kat) && (!FK || d.kat === FK) && (!f.st || status(d)[0] === f.st) && dalamRentang(d.terbit, f) && (!f.q || (d.judul + ' ' + d.kode).toLowerCase().includes(f.q.toLowerCase())))
       .sort((a, b) => (b.terbit || '9999').localeCompare(a.terbit || '9999'));
     const draw = () => {
       const list = daftar();
@@ -343,6 +348,34 @@
     };
     ikatToolbar(f, draw);
     document.getElementById('ex').onclick = () => unduhCSV('arsip-dokumen' + (FK ? '-' + FK : ''), ['Nomor', 'Judul', 'Kategori', 'Penanggung jawab', 'Terbit', 'Berlaku sampai', 'Revisi', 'Status'], daftar().map(d => [d.kode, d.judul, katNama(d.kat), d.pemilik, d.terbit, d.sampai, d.rev, status(d)[0]]));
+    document.getElementById('tb').onclick = (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) detail(+tr.dataset.id); };
+    draw();
+  }
+
+  /* ---------- Dokumen arsip: yg sudah diarsipkan, filter per kategori ---------- */
+  function vArsip(v, T) {
+    T.textContent = 'Dokumen arsip';
+    const f = fl(); f.kat = f.kat || '';
+    const opsiKat = KAT.filter(k => bolehLihatKat(k[0]));
+    v.innerHTML = `<p class="muted lead">Dokumen final yang sudah diarsipkan. Saring berdasarkan kategori, atau cari judul/nomor.</p>
+      <div class="toolbar">
+      <input id="q" type="search" placeholder="Cari judul atau nomor dokumen" value="${esc(f.q)}">
+      <select id="fkat"><option value="">Semua kategori</option>${opsiKat.map(k => `<option value="${k[0]}"${f.kat === k[0] ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select>
+      <label class="dt">Dari<input type="date" id="fd" value="${f.dari}"></label><label class="dt">Sampai<input type="date" id="fe" value="${f.sampai}"></label>
+      <button class="btn ghost" id="ex" type="button">Ekspor Excel</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Judul</th><th>Kategori</th><th>Terbit</th><th>Rev.</th><th>Berlaku sampai</th><th>Status</th></tr></thead><tbody id="tb"></tbody></table></div><div class="pager" id="pg"></div>`;
+    const daftar = () => DOCS.filter(d => d.arsip && bolehLihatKat(d.kat) && (!f.kat || d.kat === f.kat) && dalamRentang(d.terbit, f) && (!f.q || (d.judul + ' ' + d.kode).toLowerCase().includes(f.q.toLowerCase())))
+      .sort((a, b) => (b.terbit || '9999').localeCompare(a.terbit || '9999'));
+    const draw = () => {
+      const list = daftar();
+      document.getElementById('tb').innerHTML = halaman(list, f).map(d => { const s = status(d); return `<tr data-id="${d.id}"><td class="code" data-l="Nomor">${esc(d.kode)}</td><td data-l="Judul">${esc(d.judul)}<div class="muted" style="font-size:.8rem">${esc(d.pemilik)}${d.tpl ? ' · <span class="chip">dari templat</span>' : ''}${d.surat ? ' · <span class="chip">surat keluar</span>' : ''}</div></td><td data-l="Kategori">${esc(katNama(d.kat))}</td><td data-l="Terbit">${tgl(d.terbit)}</td><td data-l="Revisi">${d.rev}</td><td data-l="Berlaku sampai">${d.sampai ? tgl(d.sampai) : 'Tidak terbatas'}</td><td data-l="Status"><span class="badge ${s[1]}">${s[0]}</span></td></tr>`; }).join('') || `<tr><td colspan="7" class="muted kosong">Belum ada dokumen arsip yang cocok.</td></tr>`;
+      pager(list.length, f, draw);
+    };
+    document.getElementById('q').oninput = (e) => { f.q = e.target.value; f.pg = 1; draw(); };
+    document.getElementById('fkat').onchange = (e) => { f.kat = e.target.value; f.pg = 1; draw(); };
+    document.getElementById('fd').onchange = (e) => { f.dari = e.target.value; f.pg = 1; draw(); };
+    document.getElementById('fe').onchange = (e) => { f.sampai = e.target.value; f.pg = 1; draw(); };
+    document.getElementById('ex').onclick = () => unduhCSV('dokumen-arsip', ['Nomor', 'Judul', 'Kategori', 'Penanggung jawab', 'Terbit', 'Berlaku sampai', 'Revisi', 'Status'], daftar().map(d => [d.kode, d.judul, katNama(d.kat), d.pemilik, d.terbit, d.sampai, d.rev, status(d)[0]]));
     document.getElementById('tb').onclick = (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) detail(+tr.dataset.id); };
     draw();
   }
@@ -464,7 +497,7 @@
     v.innerHTML = `<p class="muted lead">Surat yang dibuat dari templat atau diunggah. Alur: Draf → Diajukan → Disahkan Ketua → Terkirim. Nomor surat diketik manual sesuai buku agenda; sistem menolak nomor kosong atau ganda.</p>
       ${toolbar(f, ALUR, 'Cari perihal atau nomor surat', '<button class="btn" id="addSK" type="button">+ Buat surat</button>')}
       <div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Perihal</th><th>Tanggal</th><th>Arsip di</th><th>Status</th></tr></thead><tbody id="tb"></tbody></table></div><div class="pager" id="pg"></div>`;
-    const daftar = () => DOCS.filter(d => d.surat && (!f.st || d.alur === f.st) && dalamRentang(d.terbit, f) && (!f.q || (d.judul + ' ' + d.kode).toLowerCase().includes(f.q.toLowerCase()))).sort((a, b) => b.kode.localeCompare(a.kode));
+    const daftar = () => DOCS.filter(d => !d.arsip && d.surat && (!f.st || d.alur === f.st) && dalamRentang(d.terbit, f) && (!f.q || (d.judul + ' ' + d.kode).toLowerCase().includes(f.q.toLowerCase()))).sort((a, b) => b.kode.localeCompare(a.kode));
     const draw = () => {
       const list = daftar();
       document.getElementById('tb').innerHTML = halaman(list, f).map(d => `<tr data-id="${d.id}"><td class="code" data-l="Nomor">${esc(d.kode)}</td><td data-l="Perihal">${esc(d.judul)}</td><td data-l="Tanggal">${tgl(d.terbit)}</td><td data-l="Arsip di">${esc(katNama(d.kat))}</td><td data-l="Status"><span class="badge ${alurB[d.alur]}">${d.alur}</span></td></tr>`).join('') || `<tr><td colspan="5" class="muted kosong">Tidak ada surat yang cocok dengan filter.</td></tr>`;
@@ -598,11 +631,15 @@
       if (!bisaUbah && !bolehSahkan() && d.alur === 'Draf') aksi += '';
     } else if (d.tpl && d.status === 'Draf' && bisaUbah) aksi = '<div class="acts"><button class="btn ghost" data-a="ubah">Ubah draf</button></div>';
     else if (!bisaUbah && !d.surat) aksi = '<p class="note">Dokumen ini baca-saja untuk peran Anda.</p>';
-    // Kelola dokumen: ubah data, arsipkan (draf non-surat), hapus (draf) — khusus yang berwenang di kategori ini.
-    if (bisaUbah) {
-      const bsArsip = !d.surat && d.status === 'Draf';
-      const bsHapus = d.surat ? d.alur === 'Draf' : d.status === 'Draf';
-      aksi += `<div class="acts"><button class="btn ghost" data-a="edit">Ubah data</button>${bsArsip ? '<button class="btn ghost" data-a="arsip">Arsipkan</button>' : ''}${bsHapus ? '<button class="btn ghost" data-a="hapus">Hapus</button>' : ''}</div>`;
+    // Kelola dokumen: semua jenis bisa diarsipkan & dihapus (mis. salah input).
+    // Aturan: Admin/Sekretariat (+Ketua) semua kategori; peran lain hanya dokumen miliknya.
+    const kelola = bolehKelolaArsip(d);
+    if (kelola && !d.arsip) {
+      aksi += `<div class="acts"><button class="btn ghost" data-a="edit">Ubah data</button><button class="btn ghost" data-a="arsip">Arsipkan</button><button class="btn ghost" data-a="hapus">Hapus</button></div>`;
+    } else if (kelola && d.arsip) {
+      aksi += `<div class="acts"><button class="btn ghost" data-a="keluar-arsip">Keluarkan dari arsip</button><button class="btn ghost" data-a="hapus">Hapus</button></div>`;
+    } else if (bisaUbah && !d.arsip) {
+      aksi += `<div class="acts"><button class="btn ghost" data-a="edit">Ubah data</button></div>`;
     }
     const back = drawer(`<div class="code" style="color:var(--red)">${esc(d.kode)}</div><h2 style="font-size:1.25rem;margin-top:6px">${esc(d.judul)}</h2>${d.surat ? `<span class="badge ${alurB[d.alur]}">${d.alur}</span>` : `<span class="badge ${s[1]}">${s[0]}</span>`}
       ${aksi}
@@ -622,9 +659,10 @@
       else if (act === 'kembali') { if (!bolehSahkan()) { toast('Hanya Ketua LSP'); return; } ubahAlur('Draf', 'Mengembalikan ke draf', 'Ketua LSP'); }
       else if (act === 'sahkan') ubahAlur('Disahkan', 'Mengesahkan', 'Ketua LSP');
       else if (act === 'kirim') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } ubahAlur('Terkirim', 'Menandai terkirim'); }
-      else if (act === 'edit') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } tutupDrawer(); formEditDok(id); }
-      else if (act === 'arsip') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } d.status = 'Berlaku'; if (!d.terbit) d.terbit = HARI_INI; catat('Mengarsipkan ' + d.kode); toast('Diarsipkan: ' + d.kode); shell(); detail(id); }
-      else if (act === 'hapus') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } if (!confirm('Hapus ' + (d.surat ? 'surat ' : 'dokumen ') + d.kode + ' — ' + d.judul + '?')) return; DOCS = DOCS.filter(x => x.id !== id); catat('Menghapus ' + d.kode); tutupDrawer(); shell(); toast('Dihapus: ' + d.kode); }
+      else if (act === 'edit') { if (!bolehKelolaArsip(d) && !bisaUbah) { toast('Di luar kategori Anda'); return; } tutupDrawer(); formEditDok(id); }
+      else if (act === 'arsip') { if (!bolehKelolaArsip(d)) { toast('Hanya Admin/Sekretariat, atau pemilik dokumen di kategorinya'); return; } d.arsip = true; d.status = 'Berlaku'; if (!d.terbit) d.terbit = HARI_INI; catat('Mengarsipkan ' + d.kode); toast('Diarsipkan: ' + d.kode); shell(); detail(id); }
+      else if (act === 'keluar-arsip') { if (!bolehKelolaArsip(d)) { toast('Hanya Admin/Sekretariat, atau pemilik dokumen di kategorinya'); return; } d.arsip = false; catat('Mengeluarkan dari arsip ' + d.kode); toast('Dikeluarkan dari arsip: ' + d.kode); shell(); detail(id); }
+      else if (act === 'hapus') { if (!bolehKelolaArsip(d)) { toast('Hanya Admin/Sekretariat, atau pemilik dokumen di kategorinya'); return; } if (!confirm('Hapus ' + (d.surat ? 'surat ' : 'dokumen ') + d.kode + ' — ' + d.judul + '?' + (d.arsip ? ' (dokumen arsip)' : ''))) return; DOCS = DOCS.filter(x => x.id !== id); catat('Menghapus ' + d.kode); tutupDrawer(); shell(); toast('Dihapus: ' + d.kode); }
       else toast(act);
     });
   }
