@@ -516,28 +516,57 @@
     const kelola = ['Admin', 'Ketua LSP'].includes(kunciPeran());
     v.innerHTML = `<p class="muted lead">Masuk sebagai <b>${esc((SESI && SESI.nama) || '')}</b> (@${esc((SESI && SESI.username) || '')} · ${esc(PERAN_AKTIF)}). Satu akun satu peran; password tersimpan sebagai hash di server.</p>
       <div class="table-wrap"><table><thead><tr><th>Peran</th><th>Kategori yang dapat diubah</th><th>Buat & unggah</th><th>Sahkan surat</th><th>Ubah kop & templat</th></tr></thead><tbody>${R.map(r => `<tr><td data-l="Peran"><b>${r[0]}</b></td><td data-l="Kategori">${r[1]}</td><td data-l="Buat & unggah">${r[2]}</td><td data-l="Sahkan surat">${r[3]}</td><td data-l="Ubah kop">${r[4]}</td></tr>`).join('')}</tbody></table></div>
-      <div class="panel" style="margin-top:14px"><h2>Ganti password saya</h2><form class="form" id="fPw"><label class="f">Password lama<input type="password" name="lama" required autocomplete="current-password"></label><label class="f">Password baru (min. 6 karakter)<input type="password" name="baru" required minlength="6" autocomplete="new-password"></label><div><button class="btn" type="submit">Simpan password</button></div><p class="muted" style="font-size:.84rem;margin:0" id="pwInfo"></p></form></div>
-      <div class="panel" style="margin-top:14px"><h2>Daftar akun</h2><div id="akunList"><p class="muted">Memuat…</p></div>${kelola ? `<h2 style="margin-top:16px">Buat akun baru</h2><form class="form" id="fAkun"><div class="row2"><label class="f">Username<input name="username" required pattern="[a-z0-9._-]{3,30}" placeholder="huruf kecil, mis. sekretariat"></label><label class="f">Nama lengkap<input name="nama" required></label></div><div class="row2"><label class="f">Peran<select name="peran"><option>Ketua LSP</option><option>Admin</option><option>Sekretariat</option><option>Administrasi</option><option>Bidang Sertifikasi</option><option>Manajemen Mutu</option><option>Bidang Skema</option></select></label><label class="f">Password awal (min. 6)<input type="password" name="password" required minlength="6" autocomplete="new-password"></label></div><div><button class="btn" type="submit">Buat akun</button></div><p class="muted" style="font-size:.84rem;margin:0" id="akunInfo"></p></form>` : '<p class="muted" style="font-size:.86rem">Penambahan akun dan reset sandi hanya oleh Admin atau Ketua LSP.</p>'}</div>
+      <div class="panel" style="margin-top:14px"><h2>Ganti password saya</h2><form class="form" id="fPw"><label class="f">Password lama<input type="password" name="lama" required autocomplete="current-password"></label><label class="f">Password baru (min. 8 karakter)<input type="password" name="baru" required minlength="8" autocomplete="new-password"></label><div><button class="btn" type="submit">Simpan password</button></div><p class="muted" style="font-size:.84rem;margin:0" id="pwInfo"></p></form></div>
+      <div class="panel" style="margin-top:14px"><h2>Daftar akun</h2><div id="akunList"><p class="muted">Memuat…</p></div>${kelola ? `<h2 style="margin-top:16px">Buat akun baru</h2><form class="form" id="fAkun"><div class="row2"><label class="f">Username<input name="username" required pattern="[a-z0-9._]{3,30}" placeholder="huruf kecil, mis. sekretariat"></label><label class="f">Nama lengkap<input name="nama" required></label></div><div class="row2"><label class="f">Peran<select name="peran"><option>Ketua LSP</option><option>Admin</option><option>Sekretariat</option><option>Administrasi</option><option>Bidang Sertifikasi</option><option>Manajemen Mutu</option><option>Bidang Skema</option></select></label><label class="f">Password awal (min. 8)<input type="password" name="password" required minlength="8" autocomplete="new-password"></label></div><div><button class="btn" type="submit">Buat akun</button></div><p class="muted" style="font-size:.84rem;margin:0" id="akunInfo"></p></form><div id="editAkun"></div>` : '<p class="muted" style="font-size:.86rem">Penambahan akun dan reset sandi hanya oleh Admin atau Ketua LSP.</p>'}</div>
       <p class="muted" style="font-size:.86rem;margin-top:12px">Semua peran dapat melihat dan mengunduh dokumen kategori umum. Kategori asesor dan rekaman asesmen hanya terbuka untuk Sekretariat, Sertifikasi, dan Manajemen Mutu.</p>`;
     const pw = v.querySelector('#fPw');
     pw.onsubmit = async (e) => {
       e.preventDefault();
       const info = v.querySelector('#pwInfo'); info.textContent = 'Menyimpan…';
-      try { await api('gantiPassword', { data: { lama: pw.lama.value, baru: pw.baru.value } }); info.textContent = 'Password diganti. Semua sesi lama dinonaktifkan; silakan masuk ulang bila diminta.'; pw.reset(); }
+      try { await api('gantiPassword', { data: { lama: pw.lama.value, baru: pw.baru.value } }); info.textContent = 'Password diganti. Sesi di perangkat lain ikut berakhir; sesi ini tetap aktif.'; pw.reset(); }
       catch (err) { info.textContent = err.message; }
     };
     const muatAkun = async () => {
       const el = v.querySelector('#akunList');
       try {
         const list = await api('daftarPengguna');
-        el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Aktif</th>${kelola ? '<th>Reset sandi</th>' : ''}</tr></thead><tbody>${list.map(a => `<tr><td data-l="Username">@${esc(a.username)}</td><td data-l="Nama">${esc(a.nama)}</td><td data-l="Peran">${esc(a.peran)}</td><td data-l="Aktif">${esc(a.aktif || 'Y')}</td>${kelola ? `<td data-l="Reset"><button class="btn ghost" type="button" data-reset="${esc(a.username)}">Reset</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+        el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Aktif</th>${kelola ? '<th>Kelola</th>' : ''}</tr></thead><tbody>${list.map(a => `<tr><td data-l="Username">@${esc(a.username)}</td><td data-l="Nama">${esc(a.nama)}</td><td data-l="Peran">${esc(a.peran)}</td><td data-l="Aktif">${esc(a.aktif || 'YA')}</td>${kelola ? `<td data-l="Kelola"><button class="btn ghost" type="button" data-ubah="${esc(a.username)}">Ubah</button> <button class="btn ghost" type="button" data-reset="${esc(a.username)}">Reset sandi</button> <button class="btn ghost" type="button" data-hapus="${esc(a.username)}">Hapus</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
         el.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
-          const pwBaru = prompt('Password baru untuk @' + b.dataset.reset + ' (min. 6 karakter):');
+          const pwBaru = prompt('Password baru untuk @' + b.dataset.reset + ' (min. 8 karakter):');
           if (!pwBaru) return;
           try { await api('aturSandi', { data: { username: b.dataset.reset, password: pwBaru } }); toast('Sandi @' + b.dataset.reset + ' direset'); }
           catch (err) { toast(err.message); }
         });
+        el.querySelectorAll('[data-hapus]').forEach(b => b.onclick = async () => {
+          if (!confirm('Hapus akun @' + b.dataset.hapus + '? Akun langsung tidak bisa masuk.')) return;
+          try { await api('hapusPengguna', { data: { username: b.dataset.hapus } }); toast('Akun @' + b.dataset.hapus + ' dihapus'); muatAkun(); }
+          catch (err) { toast(err.message); }
+        });
+        el.querySelectorAll('[data-ubah]').forEach(b => b.onclick = () => bukaUbah(b.dataset.ubah, list));
       } catch (err) { el.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
+    };
+    const bukaUbah = (usernameLama, list) => {
+      const a = (list || []).find(x => x.username === usernameLama) || { username: usernameLama, nama: '', peran: 'Sekretariat', aktif: 'YA' };
+      const box = v.querySelector('#editAkun');
+      const opsi = ['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'].map(p => `<option${p === a.peran ? ' selected' : ''}>${p}</option>`).join('');
+      box.innerHTML = `<h2 style="margin-top:16px">Ubah akun @${esc(usernameLama)}</h2><form class="form" id="fUbah"><div class="row2"><label class="f">Username baru<input name="username" required pattern="[a-z0-9._]{3,30}" value="${esc(a.username)}"></label><label class="f">Nama lengkap<input name="nama" required value="${esc(a.nama)}"></label></div><div class="row2"><label class="f">Peran<select name="peran">${opsi}</select></label><label class="f">Status<select name="aktif"><option value="YA"${(a.aktif || 'YA') === 'YA' ? ' selected' : ''}>YA (aktif)</option><option value="TIDAK"${a.aktif === 'TIDAK' ? ' selected' : ''}>TIDAK (nonaktif)</option></select></label></div><label class="f">Password baru (kosongkan bila tidak diganti, min. 8)<input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="kosongkan bila tidak diganti"></label><div style="display:flex;gap:8px"><button class="btn" type="submit">Simpan perubahan</button><button class="btn ghost" type="button" id="bBatalUbah">Batal</button></div><p class="muted" style="font-size:.84rem;margin:0" id="ubahInfo"></p></form>`;
+      box.querySelector('#bBatalUbah').onclick = () => { box.innerHTML = ''; };
+      box.querySelector('#fUbah').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = e.target, info = box.querySelector('#ubahInfo'); info.textContent = 'Menyimpan…';
+        try {
+          const isi = { lama: usernameLama, username: f.username.value.trim(), nama: f.nama.value.trim(), peran: f.peran.value, aktif: f.aktif.value };
+          if (f.password.value) isi.password = f.password.value;
+          const r = await api('simpanPengguna', { data: isi });
+          info.textContent = 'Tersimpan.';
+          // Bila username sendiri diganti, perbarui sesi lokal.
+          if (SESI && SESI.username === usernameLama && r && r.username && r.username !== usernameLama) {
+            SESI.username = r.username; SESI.nama = r.nama || SESI.nama; SESI.peran = r.peran || SESI.peran;
+            try { (SESI.ingat ? localStorage : sessionStorage).setItem('arsip_sesi', JSON.stringify(SESI)); } catch (err) {}
+          }
+          toast('Akun @' + usernameLama + ' diperbarui'); box.innerHTML = ''; muatAkun(); shell();
+        } catch (err) { info.textContent = err.message; }
+      };
     };
     muatAkun();
     const fa = v.querySelector('#fAkun');
@@ -545,7 +574,7 @@
       e.preventDefault();
       const info = v.querySelector('#akunInfo'); info.textContent = 'Membuat akun…';
       try {
-        await api('buatPengguna', { data: { username: fa.username.value.trim(), nama: fa.nama.value.trim(), peran: fa.peran.value, password: fa.password.value } });
+        await api('simpanPengguna', { data: { username: fa.username.value.trim(), nama: fa.nama.value.trim(), peran: fa.peran.value, password: fa.password.value } });
         info.textContent = 'Akun dibuat.'; fa.reset(); muatAkun();
       } catch (err) { info.textContent = err.message; }
     };

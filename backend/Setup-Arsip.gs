@@ -76,7 +76,7 @@ function isiValidasi_(ss) {
   validasi_(ss, 'SuratMasuk', 'status', ['Diterima', 'Didisposisi', 'Selesai']);
   validasi_(ss, 'AgendaButir', 'status', ['ok', 'warn', 'bad']);
   validasi_(ss, 'Pengguna', 'peran', ['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema']);
-  validasi_(ss, 'Pengguna', 'aktif', ['Y', 'T']);
+  validasi_(ss, 'Pengguna', 'aktif', ['YA', 'TIDAK']);
 }
 
 function tambahBaris_(ss, sheet, baris) {
@@ -105,13 +105,13 @@ function isiContoh_(ss) {
     ['t000000005', '', '', 'hadir', 'Daftar hadir', 'MNJ', 'Daftar hadir kegiatan'],
     ['t000000006', '', '', 'notulen', 'Notulen rapat', 'MNJ', 'Notulen rapat']]);
   tambahBaris_(ss, 'Pengguna', [
-    ['u000000001', '', '', 'ketua', 'Ketua LSP', 'Ketua LSP', '', '', 'Y', '', ''],
-    ['u000000002', '', '', 'admin', 'Admin Arsip', 'Admin', '', '', 'Y', '', ''],
-    ['u000000003', '', '', 'sekretariat', 'Sekretariat', 'Sekretariat', '', '', 'Y', 'Sekretariat', ''],
-    ['u000000004', '', '', 'sertifikasi', 'Bidang Sertifikasi', 'Bidang Sertifikasi', '', '', 'Y', 'Bidang Sertifikasi', ''],
-    ['u000000005', '', '', 'mutu', 'Manajemen Mutu', 'Manajemen Mutu', '', '', 'Y', 'Manajemen Mutu', ''],
-    ['u000000006', '', '', 'skema', 'Bidang Skema', 'Bidang Skema', '', '', 'Y', 'Bidang Skema', ''],
-    ['u000000007', '', '', 'administrasi', 'Administrasi', 'Administrasi', '', '', 'Y', 'Administrasi', '']]);
+    ['u000000001', '', '', 'ketua', 'Ketua LSP', 'Ketua LSP', '', '', 'YA', '', ''],
+    ['u000000002', '', '', 'admin', 'Admin Arsip', 'Admin', '', '', 'YA', '', ''],
+    ['u000000003', '', '', 'sekretariat', 'Sekretariat', 'Sekretariat', '', '', 'YA', 'Sekretariat', ''],
+    ['u000000004', '', '', 'sertifikasi', 'Bidang Sertifikasi', 'Bidang Sertifikasi', '', '', 'YA', 'Bidang Sertifikasi', ''],
+    ['u000000005', '', '', 'mutu', 'Manajemen Mutu', 'Manajemen Mutu', '', '', 'YA', 'Manajemen Mutu', ''],
+    ['u000000006', '', '', 'skema', 'Bidang Skema', 'Bidang Skema', '', '', 'YA', 'Bidang Skema', ''],
+    ['u000000007', '', '', 'administrasi', 'Administrasi', 'Administrasi', '', '', 'YA', 'Administrasi', '']]);
   tambahBaris_(ss, 'Dokumen', [
     ['d000000001', '2026-10-05T00:00:00', '', '072/LSP-UNIMED/SK/X/2026', 'ASR', 'SK Ketua LSP tentang Penugasan Asesor 17 Oktober 2026', 'Sekretariat', '2026-10-05', '', 'Disahkan', 1, 'Disahkan', 'Y', 'sk', '{"tanggal":"2026-10-05"}', '', '', ''],
     ['d000000002', '2026-10-09T00:00:00', '', '074/LSP-UNIMED/UND/X/2026', 'MNJ', 'Undangan Rapat Pleno Hasil Uji Kompetensi', 'Sekretariat', '2026-10-09', '', 'Draf', 1, 'Draf', 'Y', 'undangan', '{"tanggal":"2026-10-09","tglAcara":"2026-10-20"}', '', '', ''],
@@ -144,8 +144,9 @@ function buatPetunjuk_(ss) {
   var baris = [
     '1. Spreadsheet ini dibuat otomatis oleh buatDatabaseArsip(). JANGAN ubah nama tab dan urutan kolom.',
     '2. Buka Extensions > Apps Script, tempel backend/Code.gs dari GitHub lsp-unimed/laman-utama-demo.',
-    '3. Di Project Settings > Script Properties, tambah ADMIN_PASS (kata sandi petugas).',
-    '4. Di editor pilih siapkanSheet() > Run sekali, lalu Deploy > New deployment > Web app (Execute as: Me, Access: Anyone).',
+    '3. Di editor pilih siapkanSheet() > Run sekali (lalu setujui izin Google).',
+    '4. Masih di editor, jalankan buatAdminAwal(\'admin\', \'Ganti-Min-8-Karakter\', \'Nama Admin\') sekali untuk akun pertama (password min. 8, contoh tercatat di luar repo).',
+    '5. Deploy > New deployment > Web app (Execute as: Me, Access: Anyone) — setiap ganti Code.gs wajib New version.',
     '5. Salin URL /exec ke frontend arsip sebagai API_URL.',
     '6. Nomor surat diketik MANUAL sesuai buku agenda; backend hanya mengecek duplikat (cekNomor) dan memberi saran (saranNomor).'];
   baris.forEach(function (t, i) { sh.getRange(i + 3, 1).setValue(t); });

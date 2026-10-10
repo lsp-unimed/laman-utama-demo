@@ -15,7 +15,9 @@
  * Aksi bawaan (semua tabel): ping, skema, masuk, list, ambil, tambah, ubah, hapus
  * GET  : ?aksi=list&tabel=x (baca saja, tanpa token tidak dilayani kecuali ping/skema publik)
  * POST : body JSON {aksi, tabel, id, data, opsi, token} sebagai text/plain
- * Aksi khusus: login, logout, saya, gantiPassword, cekNomor, saranNomor, ringkasan
+ * Aksi khusus: login, logout, saya, gantiPassword (min. 8, sesi aktif tetap jalan),
+ *   daftarPengguna, simpanPengguna (buatPengguna lama, tambah+ubah incl. username/password),
+ *   hapusPengguna, aturSandi, cekNomor, saranNomor, ringkasan
  */
 
 var CONFIG = {
@@ -125,10 +127,10 @@ var SKEMA = {
     kolom: ['username', 'nama', 'peran', 'salt', 'password_hash', 'aktif', 'bagian', 'email'],
     publik: [],
     aturan: {
-      username: { wajib: true, pola: '^[a-z0-9._-]{3,30}$', pesan: 'Username 3-30 karakter (huruf kecil, angka, titik, strip).' },
+      username: { wajib: true, pola: '^[a-z0-9._]{3,30}$', pesan: 'Username 3-30 karakter: huruf kecil, angka, titik, garis bawah.' },
       nama: { wajib: true, maks: 80, pesan: 'Nama pengguna wajib diisi.' },
       peran: { wajib: true, pilihan: ['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'], pesan: 'Peran tidak dikenal.' },
-      aktif: { pilihan: ['', 'Y', 'T'], pesan: 'Aktif harus Y/T.' }
+      aktif: { pilihan: ['', 'YA', 'TIDAK'], pesan: 'Aktif harus YA/TIDAK.' }
     },
     izin: { list: 'admin', ambil: 'admin', tambah: 'admin', ubah: 'admin', hapus: 'admin' }
   },
@@ -229,11 +231,14 @@ function jalankan(body, lewatPost) {
 
     // Semua aksi lain wajib login (token seperti SIPINTAR).
     var user = authUser(body.token);
+    user._token = body.token;
     if (aksi === 'logout') { hapusSesi_(body.token); return balas({ ok: true, data: true }); }
     if (aksi === 'saya') return balas({ ok: true, data: { username: user.username, nama: user.nama, peran: user.peran } });
     if (aksi === 'gantiPassword') return balas({ ok: true, data: gantiPassword(user, body.data || {}) });
     if (aksi === 'daftarPengguna') return balas({ ok: true, data: daftarPengguna_(user) });
-    if (aksi === 'buatPengguna') return balas({ ok: true, data: buatPengguna_(user, body.data || {}) });
+    if (aksi === 'buatPengguna') return balas({ ok: true, data: simpanPengguna_(user, body.data || {}) });
+    if (aksi === 'simpanPengguna') return balas({ ok: true, data: simpanPengguna_(user, body.data || {}) });
+    if (aksi === 'hapusPengguna') return balas({ ok: true, data: hapusPengguna_(user, body.data || {}) });
     if (aksi === 'aturSandi') return balas({ ok: true, data: aturSandi_(user, body.data || {}) });
 
     if (AKSI_KHUSUS[aksi]) {
@@ -299,7 +304,7 @@ function masuk(d) {
     var user = bacaTabel('Pengguna').filter(function (r) { return String(r.username).toLowerCase() === u; })[0];
     // Hash tetap dihitung walau username tidak ada agar waktu respons tidak membocorkan username.
     var cocok = hashKata_(d.password || '', user ? user.salt : 'arsip-dummy-salt') === (user ? user.password_hash : 'x');
-    if (!user || !cocok || String(user.aktif).toUpperCase() === 'T') {
+    if (!user || !cocok || String(user.aktif).toUpperCase() === 'TIDAK') {
       cache.put(kunciGagal, String(gagal + 1), 600);
       throw galat('Username atau password salah.');
     }
@@ -317,9 +322,10 @@ function masuk(d) {
 }
 
 function gantiPassword(user, d) {
-  var lama = String(d.lama || ''), baru = String(d.baru || '');
-  if (baru.length < 6) throw galat('Password baru minimal 6 karakter.');
-  var hasil = { ok: false };
+  var me = bacaTabel('Pengguna').filter(function (r) { return String(r.username).toLowerCase() === String(user.username).toLowerCase(); })[0];
+  if (!me || hashKata_(String(d.lama || ''), me.salt) !== me.password_hash) throw galat('Password lama salah.');
+  if (String(d.baru || '').length < 8) throw galat('Password baru minimal 8 karakter.');
+  var salt = Utilities.getUuid();
   denganKunci(function () {
     var sh = sheetTabel('Pengguna');
     var judul = judulKolom(sh);
@@ -329,18 +335,16 @@ function gantiPassword(user, d) {
       if (String(ids[i][0]).toLowerCase() === String(user.username).toLowerCase()) { baris = i + 1; break; }
     }
     if (baris < 0) throw galat('Akun tidak ditemukan.');
-    var vals = sh.getRange(baris, 1, 1, judul.length).getValues()[0];
-    var row = {};
-    judul.forEach(function (j, k) { row[j] = vals[k]; });
-    if (hashKata_(lama, row.salt) !== row.password_hash) throw galat('Password lama salah.');
-    var saltBaru = Utilities.getUuid();
-    sh.getRange(baris, judul.indexOf('salt') + 1).setValue(saltBaru);
-    sh.getRange(baris, judul.indexOf('password_hash') + 1).setValue(hashKata_(baru, saltBaru));
+    sh.getRange(baris, judul.indexOf('salt') + 1).setValue(salt);
+    sh.getRange(baris, judul.indexOf('password_hash') + 1).setValue(hashKata_(String(d.baru), salt));
     sh.getRange(baris, judul.indexOf('diubah') + 1).setValue(new Date().toISOString());
-    hasil = { ok: true };
   });
-  cabutSesi_(user.username);
-  return hasil;
+  hapusCache('Pengguna');
+  cabutSesi_(user.username); // sesi lain (perangkat lain / token bocor) ikut berakhir
+  // sesi saat ini tetap aktif (plek SIPINTAR)
+  simpanSesi_(user._token, { username: user.username, nama: user.nama, peran: user.peran, t: Date.now() + 1000, ingat: !!user.ingat, exp: Number(user.exp) || (Date.now() + CONFIG.SESSION_SECONDS * 1000) });
+  catatLog(user, 'Ganti password');
+  return { ok: true };
 }
 
 function hashKata_(pw, salt) {
@@ -359,11 +363,11 @@ function authUser(token) {
   // Periksa ulang akun setiap permintaan: nonaktif / peran berubah / password diganti langsung berlaku.
   var u = bacaTabel('Pengguna').filter(function (r) { return String(r.username).toLowerCase() === String(sesi.username).toLowerCase(); })[0];
   var ver = Number(PropertiesService.getScriptProperties().getProperty('uver_' + String(sesi.username).toLowerCase()) || 0);
-  if (!u || String(u.aktif).toUpperCase() === 'T' || ver > Number(sesi.t || 0)) {
+  if (!u || String(u.aktif).toUpperCase() === 'TIDAK' || ver > Number(sesi.t || 0)) {
     hapusSesi_(token);
     throw galat('Sesi berakhir. Silakan login kembali.');
   }
-  sesi.peran = u.peran; sesi.nama = u.nama;
+  sesi.peran = u.peran; sesi.nama = u.nama; sesi.ingat = sesi.ingat; sesi.exp = sesi.exp;
   return sesi;
 }
 
@@ -415,37 +419,91 @@ function daftarPengguna_(user) {
   });
 }
 
-function buatPengguna_(user, d) {
+// Manajemen pengguna ala SIPINTAR (saveUser): tambah + ubah (termasuk username,
+// peran, nonaktif, dan password) dalam satu aksi. Hanya Admin dan Ketua.
+function simpanPengguna_(user, d) {
   hanyaPengelola_(user);
-  var u = String(d.username || '').trim().toLowerCase();
-  var pw = String(d.password || '');
-  if (!/^[a-z0-9._-]{3,30}$/.test(u)) throw galat('Username 3-30 karakter (huruf kecil, angka, titik, strip).');
-  if (pw.length < 6) throw galat('Password baru minimal 6 karakter.');
+  var un = String(d.username || '').trim().toLowerCase();
+  if (!/^[a-z0-9._]{3,30}$/.test(un)) throw galat('Username 3–30 karakter: huruf kecil, angka, titik, garis bawah.');
   if (['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'].indexOf(d.peran) < 0) throw galat('Peran tidak dikenal.');
-  if (!d.nama) throw galat('Nama pengguna wajib diisi.');
   var hasil = null;
   denganKunci(function () {
-    var ada = bacaTabel('Pengguna').some(function (r) { return String(r.username).toLowerCase() === u; });
-    if (ada) throw galat('Username "' + u + '" sudah dipakai.');
-    var salt = Utilities.getUuid();
-    var bersih = validasi('Pengguna', { username: u, nama: d.nama, peran: d.peran, salt: salt, password_hash: hashKata_(pw, salt), aktif: 'Y', bagian: d.bagian || '', email: d.email || '' }, false);
-    bersih.id = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
-    bersih.dibuat = new Date().toISOString();
-    bersih.diubah = '';
+    var semua = bacaTabel('Pengguna');
+    var lama = String(d.lama || d.usernameLama || '').trim().toLowerCase() || un;
+    var ada = semua.filter(function (r) { return String(r.username).toLowerCase() === lama; })[0];
+    // Ganti username: pastikan nama baru belum dipakai orang lain.
+    if (un !== lama && semua.some(function (r) { return String(r.username).toLowerCase() === un; })) {
+      throw galat('Username "' + un + '" sudah dipakai.');
+    }
+    var patch = { username: un, nama: d.nama || un, peran: d.peran, aktif: d.aktif || 'YA', bagian: d.bagian || '', email: d.email || '' };
+    if (d.password) {
+      if (String(d.password).length < 8) throw galat('Password minimal 8 karakter.');
+      patch.salt = Utilities.getUuid();
+      patch.password_hash = hashKata_(String(d.password), patch.salt);
+    }
     var sh = sheetTabel('Pengguna');
-    sh.appendRow(judulKolom(sh).map(function (j) { return bersih[j] != null ? bersih[j] : ''; }));
-    hasil = { username: u, nama: d.nama, peran: d.peran };
+    var judul = judulKolom(sh);
+    if (ada) {
+      var ncol = sh.getRange(1, judul.indexOf('username') + 1, sh.getLastRow(), 1).getValues();
+      for (var i = 1; i < ncol.length; i++) {
+        if (String(ncol[i][0]).toLowerCase() === lama) {
+          Object.keys(patch).forEach(function (k) {
+            if (judul.indexOf(k) >= 0) sh.getRange(i + 1, judul.indexOf(k) + 1).setValue(patch[k]);
+          });
+          sh.getRange(i + 1, judul.indexOf('diubah') + 1).setValue(new Date().toISOString());
+          break;
+        }
+      }
+      if (d.password || (ada.peran !== patch.peran) || patch.aktif === 'TIDAK' || un !== lama) {
+        cabutSesi_(lama);
+        if (un !== lama) cabutSesi_(un);
+      }
+      hasil = { username: un, nama: patch.nama, peran: patch.peran, diubah: true };
+      catatLog(user, 'Mengubah akun ' + lama + (un !== lama ? ' menjadi ' + un : '') + ' (' + patch.peran + (patch.aktif === 'TIDAK' ? ', nonaktif' : '') + (d.password ? ' · password diatur ulang' : '') + ')');
+    } else {
+      if (!d.password) throw galat('Password wajib untuk pengguna baru (min. 8 karakter).');
+      var salt = patch.salt || Utilities.getUuid();
+      var bersih = validasi('Pengguna', { username: un, nama: patch.nama, peran: patch.peran, salt: patch.salt ? patch.salt : salt, password_hash: patch.password_hash ? patch.password_hash : hashKata_(String(d.password), salt), aktif: patch.aktif, bagian: patch.bagian, email: patch.email }, false);
+      bersih.id = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+      bersih.dibuat = new Date().toISOString();
+      bersih.diubah = '';
+      sh.appendRow(judul.map(function (j) { return bersih[j] != null ? bersih[j] : ''; }));
+      hasil = { username: un, nama: patch.nama, peran: patch.peran, dibuat: true };
+      catatLog(user, 'Membuat akun ' + un + ' (' + patch.peran + ')');
+    }
   });
   hapusCache('Pengguna');
-  catatLog(user, 'Membuat akun ' + u + ' (' + d.peran + ')');
   return hasil;
+}
+
+// Hapus akun (hanya Admin/Ketua). Tidak boleh menghapus diri sendiri.
+function hapusPengguna_(user, d) {
+  hanyaPengelola_(user);
+  var un = String(d.username || '').trim().toLowerCase();
+  if (!un) throw galat('Username kosong.');
+  if (un === String(user.username).toLowerCase()) throw galat('Tidak dapat menghapus akun sendiri yang sedang dipakai.');
+  denganKunci(function () {
+    var sh = sheetTabel('Pengguna');
+    var judul = judulKolom(sh);
+    var ncol = sh.getRange(1, judul.indexOf('username') + 1, sh.getLastRow(), 1).getValues();
+    var baris = -1;
+    for (var i = 1; i < ncol.length; i++) {
+      if (String(ncol[i][0]).toLowerCase() === un) { baris = i + 1; break; }
+    }
+    if (baris < 0) throw galat('Akun "' + un + '" tidak ditemukan.');
+    sh.deleteRow(baris);
+  });
+  hapusCache('Pengguna');
+  cabutSesi_(un);
+  catatLog(user, 'Menghapus akun ' + un);
+  return { ok: true };
 }
 
 function aturSandi_(user, d) {
   hanyaPengelola_(user);
   var u = String(d.username || '').trim().toLowerCase();
   var pw = String(d.password || '');
-  if (pw.length < 6) throw galat('Password baru minimal 6 karakter.');
+  if (pw.length < 8) throw galat('Password minimal 8 karakter.');
   denganKunci(function () {
     var sh = sheetTabel('Pengguna');
     var judul = judulKolom(sh);
@@ -465,13 +523,13 @@ function aturSandi_(user, d) {
   return { ok: true };
 }
 
-/** Jalankan sekali dari editor untuk membuat akun admin pertama: buatAdminAwal('admin', 'Ganti-Sandi-Ini', 'Nama Admin'). */
+/** Jalankan sekali dari editor untuk membuat akun admin pertama: buatAdminAwal('admin', 'Ganti-Sandi-Min-8', 'Nama Admin'). */
 function buatAdminAwal(username, password, nama) {
   var u = String(username || '').trim().toLowerCase();
-  if (!/^[a-z0-9._-]{3,30}$/.test(u)) throw new Error('Username tidak valid.');
-  if (String(password).length < 6) throw new Error('Password minimal 6 karakter.');
+  if (!/^[a-z0-9._]{3,30}$/.test(u)) throw new Error('Username tidak valid.');
+  if (String(password).length < 8) throw new Error('Password minimal 8 karakter.');
   var salt = Utilities.getUuid();
-  var bersih = validasi('Pengguna', { username: u, nama: nama || u, peran: 'Admin', salt: salt, password_hash: hashKata_(password, salt), aktif: 'Y', bagian: '', email: '' }, false);
+  var bersih = validasi('Pengguna', { username: u, nama: nama || u, peran: 'Admin', salt: salt, password_hash: hashKata_(password, salt), aktif: 'YA', bagian: '', email: '' }, false);
   var hasil = null;
   denganKunci(function () {
     var ada = bacaTabel('Pengguna').some(function (r) { return String(r.username).toLowerCase() === u; });
@@ -485,7 +543,7 @@ function buatAdminAwal(username, password, nama) {
           sh.getRange(i + 1, judul.indexOf('password_hash') + 1).setValue(bersih.password_hash);
           sh.getRange(i + 1, judul.indexOf('nama') + 1).setValue(nama || u);
           sh.getRange(i + 1, judul.indexOf('peran') + 1).setValue('Admin');
-          sh.getRange(i + 1, judul.indexOf('aktif') + 1).setValue('Y');
+          sh.getRange(i + 1, judul.indexOf('aktif') + 1).setValue('YA');
           sh.getRange(i + 1, judul.indexOf('diubah') + 1).setValue(new Date().toISOString());
           break;
         }
