@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kontak — LSP UNIMED</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/img/favicon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="kontak">
+<main>
+  <section class="page-head"><div class="wrap">
+    <div class="crumb"><a href="index.html">Beranda</a> / Kontak</div>
+    <h1 style="font-size:clamp(1.9rem,4vw,2.8rem)">Hubungi kami</h1>
+    <p class="lead" style="margin:0">Sekretariat LSP UNIMED melayani pertanyaan seputar skema, pendaftaran, dan sertifikat pada hari kerja.</p>
+  </div></section>
+  <section class="section"><div class="wrap contact-grid">
+    <div>
+      <dl class="kv" style="grid-template-columns:110px 1fr"><dt>Alamat</dt><dd>Kantor LSP UNIMED, Gedung 18 Fakultas Teknik<br>Jl. Willem Iskandar Pasar V, Medan Estate, Medan</dd><dt>Email</dt><dd><a href="mailto:lspunimed@unimed.ac.id">lspunimed@unimed.ac.id</a></dd><dt>Telepon</dt><dd>(061) 6625971</dd><dt>HP</dt><dd>0812-6405-075</dd><dt>Jam layanan</dt><dd>Senin–Jumat, 08.00–16.00 WIB</dd></dl>
+      <div class="map-ph" role="img" aria-label="Peta lokasi (gambar contoh)"></div>
+    </div>
+    <div>
+      <h2 style="font-size:1.4rem">Kirim pertanyaan</h2>
+      <p class="muted">Untuk keluhan pelayanan atau banding asesmen, gunakan menu di SIPINTAR agar mendapat nomor tiket.</p>
+      <form class="form" id="fK"><label>Nama<input required></label><label>Email<input type="email" required></label><label>Pertanyaan<textarea rows="5" required></textarea></label><div><button class="btn" type="submit">Kirim pertanyaan</button></div><div id="kOut"></div></form>
+    </div>
+  </div></section>
+</main>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/konten.js"></script>
+<script>document.getElementById('fK').addEventListener('submit', e => { e.preventDefault(); document.getElementById('kOut').innerHTML = '<div class="result ok">Versi demo: pertanyaan tidak dikirim. Pada versi akhir, pertanyaan diteruskan ke email sekretariat.</div>'; });</script>
+</body>
+</html>

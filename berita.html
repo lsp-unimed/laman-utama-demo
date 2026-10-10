@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Berita — LSP UNIMED</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/img/favicon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="berita">
+<main>
+  <section class="page-head"><div class="wrap">
+    <div class="crumb"><a href="index.html">Beranda</a> / Berita</div>
+    <h1 style="font-size:clamp(1.9rem,4vw,2.8rem)">Berita dan kegiatan</h1>
+    <p class="lead" style="margin:0">Kabar terbaru tentang uji kompetensi, asesor, dan kerja sama LSP UNIMED.</p>
+  </div></section>
+  <section class="section"><div class="wrap two"><div id="art"></div><aside class="aside"><div class="box"><h3>Berita lainnya</h3><ul id="lst"></ul></div></aside></div></section>
+</main>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/konten.js"></script>
+<script>
+(function () {
+  const B = window.BERITA, esc = window.esc;
+  function show() {
+    const b = B.find(x => x.id === location.hash.slice(1)) || B[0];
+    document.getElementById('art').innerHTML = `<article class="prose"><img src="assets/img/${b.img}" alt="" style="border-radius:16px;margin-bottom:16px"><div class="date-line">${window.tglID(b.tgl)}</div><h2 style="margin-top:6px">${esc(b.judul)}</h2>${b.isi.map(p => `<p>${esc(p)}</p>`).join('')}</article>`;
+    document.getElementById('lst').innerHTML = B.filter(x => x !== b).map(x => `<li><a href="#${x.id}">${esc(x.judul)}</a><br><span class="date-line">${window.tglID(x.tgl)}</span></li>`).join('');
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', show); show();
+})();
+</script>
+</body>
+</html>

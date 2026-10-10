@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cek sertifikat — LSP UNIMED</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/img/favicon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="verifikasi">
+<main>
+  <section class="page-head"><div class="wrap">
+    <div class="crumb"><a href="index.html">Beranda</a> / Cek sertifikat</div>
+    <h1 style="font-size:clamp(1.9rem,4vw,2.8rem)">Cek keaslian sertifikat</h1>
+    <p class="lead" style="margin:0">Untuk perusahaan, instansi, dan pemegang sertifikat yang ingin memastikan sertifikat kompetensi diterbitkan melalui LSP UNIMED.</p>
+  </div></section>
+  <section class="section"><div class="wrap two">
+    <div>
+      <form id="fV" class="form" style="max-width:560px"><label>Nomor sertifikat<input id="no" placeholder="mis. 62090 2611 3 0000123 2026" autocomplete="off"></label><label>Nama pemegang (opsional)<input id="nm" placeholder="Sesuai yang tertulis di sertifikat"></label><div><button class="btn" type="submit">Cek sertifikat</button></div></form>
+      <div id="out" style="max-width:560px"></div>
+    </div>
+    <aside class="aside"><div class="box"><h3>Cara membaca nomor</h3><p class="muted" style="font-size:.93rem">Nomor sertifikat tercetak di bagian depan sertifikat kompetensi. Seluruh sertifikat BNSP juga dapat diperiksa melalui laman resmi BNSP.</p><a href="https://bnsp.go.id" target="_blank" rel="noopener">www.bnsp.go.id</a></div>
+      <div class="notice">Versi demo: coba nomor <b>62090 2611 3 0000123 2026</b>. Pada versi akhir, data diambil dari SIPINTAR.</div></aside>
+  </div></section>
+</main>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/konten.js"></script>
+<script>
+document.getElementById('fV').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = document.getElementById('no').value.trim(), out = document.getElementById('out'), esc = window.esc;
+  if (!v) { out.innerHTML = '<div class="result no">Masukkan nomor sertifikat.</div>'; return; }
+  const hit = window.CONTOH_SERTIFIKAT.find(s => s.no.replace(/\s/g, '') === v.replace(/\s/g, ''));
+  out.innerHTML = hit ? `<div class="result ok"><b>Sertifikat terdaftar di LSP UNIMED</b><dl><dt>Nomor</dt><dd>${esc(hit.no)}</dd><dt>Nama</dt><dd>${esc(hit.nama)}</dd><dt>Skema</dt><dd>${esc(hit.skema)}</dd><dt>Berlaku sampai</dt><dd>${esc(hit.sampai)}</dd></dl></div>`
+    : '<div class="result no"><b>Nomor tidak ditemukan.</b> Periksa kembali penulisan nomor, atau hubungi lspunimed@unimed.ac.id.</div>';
+});
+</script>
+</body>
+</html>

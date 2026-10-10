@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LSP UNIMED — Lembaga Sertifikasi Profesi Universitas Negeri Medan</title>
+  <meta name="description" content="Sertifikasi kompetensi berlisensi BNSP untuk mahasiswa dan alumni Universitas Negeri Medan.">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/img/favicon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="beranda">
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Kompetensi lulusan UNIMED, diakui secara nasional.</h1>
+        <p class="lead">LSP Universitas Negeri Medan menguji dan mensertifikasi kompetensi mahasiswa dan alumni sesuai standar BNSP, di laboratorium kampus sendiri, oleh asesor kompetensi yang teregistrasi.</p>
+        <div class="actions">
+          <a class="btn" href="https://lsp-unimed.github.io/sipintar/#/jadwal" target="_blank" rel="noopener">Daftar uji kompetensi</a>
+          <a class="btn ghost" href="alur.html">Pelajari alurnya</a>
+        </div>
+        <div class="licensed">
+          <img src="assets/img/logo-bnsp.png" alt="BNSP">
+          <p><b>Berlisensi BNSP</b> sebagai LSP Pihak Kesatu<br>No. BNSP-LSP-1928-ID</p>
+        </div>
+      </div>
+
+      <aside class="finder" aria-labelledby="finderTitle">
+        <h2 id="finderTitle">Peta kompetensi fakultas</h2>
+        <p>Pilih fakultas Anda untuk melihat skema yang bisa diikuti.</p>
+        <div class="fak" role="group" aria-label="Pilih fakultas" id="fak"></div>
+        <div class="fak-name" id="fakName"></div>
+        <ul class="fak-list" id="fakList"></ul>
+        <div class="foot"><span id="fakCount"></span><a href="skema.html">Semua skema</a></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="verify" aria-labelledby="vTitle">
+    <div class="wrap">
+      <div><h2 id="vTitle">Cek keaslian sertifikat</h2><p>Untuk perusahaan dan instansi yang ingin memastikan sertifikat kompetensi lulusan UNIMED.</p></div>
+      <div>
+        <form id="fVerif"><label class="sr-only" for="noSert">Nomor sertifikat</label><input id="noSert" placeholder="Nomor sertifikat, mis. 62090 2611 3 0000123 2026" autocomplete="off"><button class="btn" type="submit">Cek sertifikat</button></form>
+        <div id="vOut"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head"><div><h2>Skema sertifikasi</h2><p>Skema disusun bersama program studi dan mengacu pada SKKNI, KKNI, serta standar okupasi industri.</p></div><a class="btn ghost sm" href="skema.html">Lihat 16 skema</a></div>
+      <div class="filters" id="jenisF"></div>
+      <div class="skema-rows" id="skemaRows"></div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="wrap">
+      <div class="section-head"><div><h2>Empat langkah menuju sertifikat</h2><p>Seluruh proses berjalan daring di SIPINTAR, kecuali verifikasi berkas asli dan uji kompetensi yang dilakukan langsung di TUK.</p></div></div>
+      <div class="steps">
+        <div class="step"><h3>Daftar daring</h3><p>Pilih jadwal, isi APL-01 dan APL-02 skema Anda dengan tulisan tangan, lalu unggah bersama berkas persyaratan.</p></div>
+        <div class="step"><h3>Verifikasi berkas</h3><p>Bagian Administrasi memeriksa kelengkapan, lalu Anda datang membawa berkas asli untuk verifikasi langsung.</p></div>
+        <div class="step"><h3>Uji kompetensi</h3><p>Asesor menguji Anda di Tempat Uji Kompetensi sesuai skema: observasi, tes tertulis, dan wawancara.</p></div>
+        <div class="step"><h3>Terima sertifikat</h3><p>Asesi yang kompeten menerima sertifikat kompetensi BNSP. Status dapat dilacak kapan saja.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="figures" aria-label="LSP UNIMED dalam angka">
+        <div><b>16</b><span>skema sertifikasi</span></div>
+        <div><b>12</b><span>tempat uji kompetensi</span></div>
+        <div><b>16</b><span>asesor kompetensi</span></div>
+        <div><b>5</b><span>fakultas terlayani</span></div>
+      </div>
+      <div style="height:28px"></div>
+      <div class="agenda">
+        <div class="date"><b>17</b><span>Oktober 2026</span></div>
+        <div><h3 style="margin-bottom:4px">Uji kompetensi perdana untuk 16 skema</h3><p class="muted" style="margin:0">Pendaftaran dibuka sampai 14 Oktober 2026. Verifikasi langsung berkas asli di kantor LSP, Gedung 18 Fakultas Teknik.</p></div>
+        <a class="btn" href="https://lsp-unimed.github.io/sipintar/#/jadwal" target="_blank" rel="noopener">Lihat jadwal</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="wrap">
+      <div class="section-head"><div><h2>Berita</h2></div><a class="btn ghost sm" href="berita.html">Semua berita</a></div>
+      <div class="news" id="news"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head"><div><h2>Satu lembaga, tiga laman</h2><p>Informasi publik, layanan asesi, dan pengelolaan dokumen dipisah agar masing-masing tetap ringkas dan aman.</p></div></div>
+      <div class="eco">
+        <div class="a"><div class="addr">lsp.unimed.ac.id</div><h3>Situs LSP</h3><p>Profil, skema, asesor, TUK, berita, dan cek sertifikat. Laman yang sedang Anda buka.</p><a href="peta-ekosistem.html">Lihat peta sistem</a></div>
+        <div class="b"><div class="addr">sipintar.lsp.unimed.ac.id</div><h3>SIPINTAR</h3><p>Pendaftaran uji kompetensi, status permohonan, hasil, sertifikat, banding, dan keluhan.</p><a class="btn light sm" href="https://lsp-unimed.github.io/sipintar/" target="_blank" rel="noopener">Buka SIPINTAR</a></div>
+        <div class="c"><div class="addr">arsip.lsp.unimed.ac.id</div><h3>Arsip dokumen</h3><p>Ruang kerja petugas untuk mencatat dan menyimpan seluruh dokumen mutu, asesmen, dan administrasi LSP.</p><a class="btn light sm" href="arsip/index.html">Lihat demo</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/konten.js"></script>
+<script>
+(function () {
+  const D = window.LSP_DATA, F = window.FAKULTAS, esc = window.esc;
+  const SIP = window.LSP_SITE.URL.sipintar;
+
+  // Peta kompetensi fakultas
+  const fakEl = document.getElementById('fak');
+  const order = ['FT', 'FE', 'FIS', 'FIP', 'FIK'];
+  fakEl.innerHTML = order.map((k, i) => `<button type="button" data-f="${k}" aria-pressed="${i === 0}"><b>${k}</b><span>${D.skema.filter(s => s.fak === k).length} skema</span></button>`).join('');
+  function showFak(k) {
+    fakEl.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === k)));
+    const list = D.skema.filter(s => s.fak === k);
+    document.getElementById('fakName').textContent = F[k];
+    document.getElementById('fakList').innerHTML = list.map(s => `<li><a href="skema.html#${s.id}"><span class="tag ${s.jenis}">${s.jenis}</span><span>${esc(s.nama.replace(/^(Okupasi|Klaster) /, ''))}</span></a></li>`).join('');
+    document.getElementById('fakCount').textContent = list.length + ' skema untuk ' + F[k];
+  }
+  fakEl.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) showFak(b.dataset.f); });
+  showFak('FT');
+
+  // Skema (ringkas, 6 baris) dengan filter jenis
+  const jenis = ['Semua', 'KKNI', 'Okupasi', 'Klaster'];
+  const jf = document.getElementById('jenisF');
+  jf.innerHTML = jenis.map((j, i) => `<button class="chip" type="button" data-j="${j}" aria-pressed="${i === 0}">${j}</button>`).join('');
+  function rows(j) {
+    jf.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.j === j)));
+    const list = D.skema.filter(s => j === 'Semua' || s.jenis === j).slice(0, 6);
+    document.getElementById('skemaRows').innerHTML = list.map(s => `<a class="skema-row" href="skema.html#${s.id}"><span class="jenis">${s.jenis}</span><div><h3>${esc(s.nama)}</h3><div class="meta">${esc(window.tukNama(s.tuk))}</div></div><span class="meta">${esc(F[s.fak])}</span><span class="go">Persyaratan</span></a>`).join('');
+  }
+  jf.addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (c) rows(c.dataset.j); });
+  rows('Semua');
+
+  // Cek sertifikat (demo)
+  document.getElementById('fVerif').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = document.getElementById('noSert').value.trim();
+    const out = document.getElementById('vOut');
+    if (!v) { out.innerHTML = '<div class="result no">Masukkan nomor sertifikat yang tertera di bagian depan sertifikat.</div>'; return; }
+    const hit = window.CONTOH_SERTIFIKAT.find(s => s.no.replace(/\s/g, '') === v.replace(/\s/g, ''));
+    out.innerHTML = hit
+      ? `<div class="result ok"><b>Sertifikat terdaftar</b><dl><dt>Nama</dt><dd>${esc(hit.nama)}</dd><dt>Skema</dt><dd>${esc(hit.skema)}</dd><dt>Berlaku sampai</dt><dd>${esc(hit.sampai)}</dd></dl></div>`
+      : `<div class="result no"><b>Nomor tidak ditemukan.</b> Periksa kembali penulisan nomor, atau hubungi lspunimed@unimed.ac.id. Pada versi demo, coba nomor <b>62090 2611 3 0000123 2026</b>.</div>`;
+  });
+
+  window.renderBeritaRingkas(document.getElementById('news'));
+})();
+</script>
+</body>
+</html>
