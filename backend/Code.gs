@@ -8,11 +8,21 @@
  *   Templat, Kop, Pengguna, Log
  * Kolom 'id', 'dibuat', 'diubah' otomatis; jangan ditulis di 'kolom'.
  *
+ * Login seperti SIPINTAR: username + password per pengguna (sheet Pengguna:
+ * username, nama, peran, salt, password_hash, aktif). Sesi memakai token
+ * (CacheService 6 jam, "ingat saya" 7 hari via Script Properties).
+ *
  * Aksi bawaan (semua tabel): ping, skema, masuk, list, ambil, tambah, ubah, hapus
- * GET  : ?aksi=list&tabel=x (baca saja)
- * POST : body JSON {aksi, tabel, id, data, opsi, pass} sebagai text/plain
- * Aksi khusus: cekNomor, saranNomor, ringkasan
+ * GET  : ?aksi=list&tabel=x (baca saja, tanpa token tidak dilayani kecuali ping/skema publik)
+ * POST : body JSON {aksi, tabel, id, data, opsi, token} sebagai text/plain
+ * Aksi khusus: login, logout, saya, gantiPassword, cekNomor, saranNomor, ringkasan
  */
+
+var CONFIG = {
+  SESSION_SECONDS: 21600, // 6 jam (maksimum CacheService)
+  INGAT_HARI: 7,
+  TZ: 'Asia/Jakarta'
+};
 
 // ===================== SKEMA =====================
 var SKEMA = {
@@ -112,9 +122,10 @@ var SKEMA = {
     izin: { list: 'publik', ambil: 'publik', tambah: 'admin', ubah: 'admin', hapus: 'admin' }
   },
   Pengguna: {
-    kolom: ['nama', 'peran', 'bagian', 'email', 'aktif'],
+    kolom: ['username', 'nama', 'peran', 'salt', 'password_hash', 'aktif', 'bagian', 'email'],
     publik: [],
     aturan: {
+      username: { wajib: true, pola: '^[a-z0-9._-]{3,30}$', pesan: 'Username 3-30 karakter (huruf kecil, angka, titik, strip).' },
       nama: { wajib: true, maks: 80, pesan: 'Nama pengguna wajib diisi.' },
       peran: { wajib: true, pilihan: ['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'], pesan: 'Peran tidak dikenal.' },
       aktif: { pilihan: ['', 'Y', 'T'], pesan: 'Aktif harus Y/T.' }
@@ -190,12 +201,9 @@ var MAKS_PER_HALAMAN = 200;
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  var bolehGet = ['ping', 'skema', 'list', 'ambil'].indexOf(p.aksi) >= 0 ||
-                 (AKSI_KHUSUS[p.aksi] && AKSI_KHUSUS[p.aksi].izin === 'publik');
-  if (!bolehGet) return balas({ ok: false, pesan: 'Aksi ini harus lewat POST.' });
-  var body = { aksi: p.aksi, tabel: p.tabel, id: p.id, opsi: {} };
-  ['cari', 'urut', 'turun', 'halaman', 'per'].forEach(function (k) { if (p[k] != null) body.opsi[k] = p[k]; });
-  return jalankan(body, false);
+  // GET hanya untuk cek koneksi; semua aksi lain wajib POST agar password/token tidak masuk URL.
+  if ((p.aksi || 'ping') !== 'ping') return balas({ ok: false, pesan: 'Aksi ini harus lewat POST.' });
+  return jalankan({ aksi: 'ping' }, false);
 }
 
 function doPost(e) {
@@ -210,37 +218,295 @@ function doPost(e) {
 
 function jalankan(body, lewatPost) {
   try {
-    var isAdmin = lewatPost && body.pass ? cekAdmin(body.pass) : false;
     var aksi = String(body.aksi || '');
 
     if (aksi === 'ping')  return balas({ ok: true, data: { waktu: new Date().toISOString() } });
-    if (aksi === 'skema') return balas({ ok: true, data: skemaPublik(isAdmin) });
-    if (aksi === 'masuk') { if (!isAdmin) throw galat('Kata sandi salah.'); return balas({ ok: true, data: true }); }
+    if (aksi === 'login') return balas({ ok: true, data: masuk(body.data || {}) });
+    if (aksi === 'skema') {
+      var u0 = body.token ? authUser(body.token) : null;
+      return balas({ ok: true, data: skemaPublik(!!u0) });
+    }
+
+    // Semua aksi lain wajib login (token seperti SIPINTAR).
+    var user = authUser(body.token);
+    if (aksi === 'logout') { hapusSesi_(body.token); return balas({ ok: true, data: true }); }
+    if (aksi === 'saya') return balas({ ok: true, data: { username: user.username, nama: user.nama, peran: user.peran } });
+    if (aksi === 'gantiPassword') return balas({ ok: true, data: gantiPassword(user, body.data || {}) });
+    if (aksi === 'daftarPengguna') return balas({ ok: true, data: daftarPengguna_(user) });
+    if (aksi === 'buatPengguna') return balas({ ok: true, data: buatPengguna_(user, body.data || {}) });
+    if (aksi === 'aturSandi') return balas({ ok: true, data: aturSandi_(user, body.data || {}) });
 
     if (AKSI_KHUSUS[aksi]) {
-      izinkan(AKSI_KHUSUS[aksi].izin, isAdmin);
-      return balas({ ok: true, data: AKSI_KHUSUS[aksi].jalankan(body, isAdmin) });
+      return balas({ ok: true, data: AKSI_KHUSUS[aksi].jalankan(body, user) });
     }
 
     var nama = String(body.tabel || '');
     var t = SKEMA[nama];
     if (!t) throw galat('Tabel "' + nama + '" tidak dikenal.');
     if (!t.izin || !t.izin[aksi]) throw galat('Aksi tidak diizinkan.');
-    izinkan(t.izin[aksi], isAdmin);
 
+    var hasil;
     switch (aksi) {
-      case 'list':   return balas({ ok: true, data: list(nama, body.opsi || {}, isAdmin) });
-      case 'ambil':  return balas({ ok: true, data: ambil(nama, String(body.id || ''), isAdmin) });
-      case 'tambah': return balas({ ok: true, data: tambah(nama, body.data || {}, isAdmin) });
-      case 'ubah':   return balas({ ok: true, data: ubah(nama, String(body.id || ''), body.data || {}, isAdmin) });
-      case 'hapus':  return balas({ ok: true, data: hapus(nama, String(body.id || '')) });
+      case 'list':   hasil = list(nama, body.opsi || {}, true); break;
+      case 'ambil':  hasil = ambil(nama, String(body.id || ''), true); break;
+      case 'tambah': hasil = tambah(nama, body.data || {}, true); catatLog(user, 'Menambah ' + nama + ': ' + ringkasData(body.data || {})); break;
+      case 'ubah':   hasil = ubah(nama, String(body.id || ''), body.data || {}, true); catatLog(user, 'Mengubah ' + nama + ' ' + body.id); break;
+      case 'hapus':  hasil = hapus(nama, String(body.id || '')); catatLog(user, 'Menghapus ' + nama + ' ' + body.id); break;
+      default: throw galat('Aksi tidak dikenal.');
     }
-    throw galat('Aksi tidak dikenal.');
+    return balas({ ok: true, data: hasil });
   } catch (err) {
     if (err && err.publik) return balas({ ok: false, pesan: err.message });
     console.error(err && err.stack || err);
     return balas({ ok: false, pesan: 'Terjadi kesalahan di server.' });
   }
+}
+
+function ringkasData(d) {
+  var s = String(d.kode || d.nomor || d.nama || d.judul || d.agenda || d.username || '');
+  return s.slice(0, 80);
+}
+
+function catatLog(user, aksi) {
+  try {
+    denganKunci(function () {
+      var sh = sheetTabel('Log');
+      var judul = judulKolom(sh);
+      var bar = judul.map(function (j) {
+        if (j === 'id') return Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+        if (j === 'dibuat' || j === 'waktu') return new Date().toISOString();
+        if (j === 'diubah') return '';
+        if (j === 'siapa') return (user.nama || user.username) + ' (' + user.peran + ')';
+        if (j === 'aksi') return String(aksi).slice(0, 300);
+        return '';
+      });
+      sh.appendRow(bar);
+    });
+  } catch (e) { /* log tidak boleh menggagalkan transaksi */ }
+}
+
+
+// ===================== Login ala SIPINTAR =====================
+
+function masuk(d) {
+  var u = String(d.username || '').trim().toLowerCase();
+  if (!u) throw galat('Username wajib diisi.');
+  var cache = CacheService.getScriptCache();
+  var kunciGagal = 'gagal_' + u;
+  return denganKunciNilai(function () {
+    var gagal = Number(cache.get(kunciGagal) || 0);
+    if (gagal >= 5) throw galat('Terlalu banyak percobaan gagal. Coba lagi 10 menit lagi.');
+    var user = bacaTabel('Pengguna').filter(function (r) { return String(r.username).toLowerCase() === u; })[0];
+    // Hash tetap dihitung walau username tidak ada agar waktu respons tidak membocorkan username.
+    var cocok = hashKata_(d.password || '', user ? user.salt : 'arsip-dummy-salt') === (user ? user.password_hash : 'x');
+    if (!user || !cocok || String(user.aktif).toUpperCase() === 'T') {
+      cache.put(kunciGagal, String(gagal + 1), 600);
+      throw galat('Username atau password salah.');
+    }
+    cache.remove(kunciGagal);
+    var token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+    var ingat = d.ingat === true || d.ingat === 'on' || d.ingat === 'YA';
+    var sesi = { username: user.username, nama: user.nama, peran: user.peran,
+      t: Date.now(), ingat: ingat,
+      exp: Date.now() + (ingat ? CONFIG.INGAT_HARI * 86400000 : CONFIG.SESSION_SECONDS * 1000) };
+    simpanSesi_(token, sesi);
+    try { bersihkanSesi_(); } catch (e) {}
+    catatLog({ nama: user.nama, username: user.username, peran: user.peran }, 'Masuk aplikasi' + (ingat ? ' (ingat perangkat ' + CONFIG.INGAT_HARI + ' hari)' : ''));
+    return { token: token, user: { username: user.username, nama: user.nama, peran: user.peran } };
+  });
+}
+
+function gantiPassword(user, d) {
+  var lama = String(d.lama || ''), baru = String(d.baru || '');
+  if (baru.length < 6) throw galat('Password baru minimal 6 karakter.');
+  var hasil = { ok: false };
+  denganKunci(function () {
+    var sh = sheetTabel('Pengguna');
+    var judul = judulKolom(sh);
+    var ids = sh.getRange(1, judul.indexOf('username') + 1, sh.getLastRow(), 1).getValues();
+    var baris = -1;
+    for (var i = 1; i < ids.length; i++) {
+      if (String(ids[i][0]).toLowerCase() === String(user.username).toLowerCase()) { baris = i + 1; break; }
+    }
+    if (baris < 0) throw galat('Akun tidak ditemukan.');
+    var vals = sh.getRange(baris, 1, 1, judul.length).getValues()[0];
+    var row = {};
+    judul.forEach(function (j, k) { row[j] = vals[k]; });
+    if (hashKata_(lama, row.salt) !== row.password_hash) throw galat('Password lama salah.');
+    var saltBaru = Utilities.getUuid();
+    sh.getRange(baris, judul.indexOf('salt') + 1).setValue(saltBaru);
+    sh.getRange(baris, judul.indexOf('password_hash') + 1).setValue(hashKata_(baru, saltBaru));
+    sh.getRange(baris, judul.indexOf('diubah') + 1).setValue(new Date().toISOString());
+    hasil = { ok: true };
+  });
+  cabutSesi_(user.username);
+  return hasil;
+}
+
+function hashKata_(pw, salt) {
+  var h = String(salt) + String(pw);
+  for (var i = 0; i < 300; i++) {
+    h = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h, Utilities.Charset.UTF_8)
+      .map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+  }
+  return h;
+}
+
+function authUser(token) {
+  if (!token) throw galat('Sesi berakhir. Silakan login kembali.');
+  var sesi = bacaSesi_(token);
+  if (!sesi) throw galat('Sesi berakhir. Silakan login kembali.');
+  // Periksa ulang akun setiap permintaan: nonaktif / peran berubah / password diganti langsung berlaku.
+  var u = bacaTabel('Pengguna').filter(function (r) { return String(r.username).toLowerCase() === String(sesi.username).toLowerCase(); })[0];
+  var ver = Number(PropertiesService.getScriptProperties().getProperty('uver_' + String(sesi.username).toLowerCase()) || 0);
+  if (!u || String(u.aktif).toUpperCase() === 'T' || ver > Number(sesi.t || 0)) {
+    hapusSesi_(token);
+    throw galat('Sesi berakhir. Silakan login kembali.');
+  }
+  sesi.peran = u.peran; sesi.nama = u.nama;
+  return sesi;
+}
+
+function kunciSesi_(token) {
+  return 'sesi_' + Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('').slice(0, 40);
+}
+function simpanSesi_(token, sesi) {
+  var sisa = Math.floor((Number(sesi.exp) - Date.now()) / 1000);
+  if (sisa <= 0) return;
+  CacheService.getScriptCache().put('sess_' + token, JSON.stringify(sesi), Math.min(CONFIG.SESSION_SECONDS, sisa));
+  if (sesi.ingat) PropertiesService.getScriptProperties().setProperty(kunciSesi_(token), JSON.stringify(sesi));
+}
+function bacaSesi_(token) {
+  var c = CacheService.getScriptCache().get('sess_' + token);
+  if (c) return JSON.parse(c);
+  var props = PropertiesService.getScriptProperties();
+  var p = props.getProperty(kunciSesi_(token));
+  if (!p) return null;
+  var sesi = JSON.parse(p);
+  if (Number(sesi.exp) <= Date.now()) { props.deleteProperty(kunciSesi_(token)); return null; }
+  simpanSesi_(token, sesi);
+  return sesi;
+}
+function hapusSesi_(token) {
+  CacheService.getScriptCache().remove('sess_' + token);
+  PropertiesService.getScriptProperties().deleteProperty(kunciSesi_(token));
+}
+function bersihkanSesi_() {
+  var props = PropertiesService.getScriptProperties(), semua = props.getProperties(), now = Date.now();
+  Object.keys(semua).forEach(function (k) {
+    if (k.indexOf('sesi_') !== 0) return;
+    try { if (Number(JSON.parse(semua[k]).exp) <= now) props.deleteProperty(k); } catch (e) { props.deleteProperty(k); }
+  });
+}
+function cabutSesi_(username) {
+  PropertiesService.getScriptProperties().setProperty('uver_' + String(username).toLowerCase(), String(Date.now()));
+}
+
+// Hanya Admin dan Ketua yang boleh mengelola akun.
+function hanyaPengelola_(user) {
+  if (['Admin', 'Ketua LSP'].indexOf(user.peran) < 0) throw galat('Hanya Admin atau Ketua LSP yang dapat mengelola akun.');
+}
+
+function daftarPengguna_(user) {
+  hanyaPengelola_(user);
+  return bacaTabel('Pengguna').map(function (r) {
+    return { username: r.username, nama: r.nama, peran: r.peran, aktif: r.aktif, bagian: r.bagian, email: r.email };
+  });
+}
+
+function buatPengguna_(user, d) {
+  hanyaPengelola_(user);
+  var u = String(d.username || '').trim().toLowerCase();
+  var pw = String(d.password || '');
+  if (!/^[a-z0-9._-]{3,30}$/.test(u)) throw galat('Username 3-30 karakter (huruf kecil, angka, titik, strip).');
+  if (pw.length < 6) throw galat('Password baru minimal 6 karakter.');
+  if (['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'].indexOf(d.peran) < 0) throw galat('Peran tidak dikenal.');
+  if (!d.nama) throw galat('Nama pengguna wajib diisi.');
+  var hasil = null;
+  denganKunci(function () {
+    var ada = bacaTabel('Pengguna').some(function (r) { return String(r.username).toLowerCase() === u; });
+    if (ada) throw galat('Username "' + u + '" sudah dipakai.');
+    var salt = Utilities.getUuid();
+    var bersih = validasi('Pengguna', { username: u, nama: d.nama, peran: d.peran, salt: salt, password_hash: hashKata_(pw, salt), aktif: 'Y', bagian: d.bagian || '', email: d.email || '' }, false);
+    bersih.id = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+    bersih.dibuat = new Date().toISOString();
+    bersih.diubah = '';
+    var sh = sheetTabel('Pengguna');
+    sh.appendRow(judulKolom(sh).map(function (j) { return bersih[j] != null ? bersih[j] : ''; }));
+    hasil = { username: u, nama: d.nama, peran: d.peran };
+  });
+  hapusCache('Pengguna');
+  catatLog(user, 'Membuat akun ' + u + ' (' + d.peran + ')');
+  return hasil;
+}
+
+function aturSandi_(user, d) {
+  hanyaPengelola_(user);
+  var u = String(d.username || '').trim().toLowerCase();
+  var pw = String(d.password || '');
+  if (pw.length < 6) throw galat('Password baru minimal 6 karakter.');
+  denganKunci(function () {
+    var sh = sheetTabel('Pengguna');
+    var judul = judulKolom(sh);
+    var ncol = sh.getRange(1, judul.indexOf('username') + 1, sh.getLastRow(), 1).getValues();
+    var baris = -1;
+    for (var i = 1; i < ncol.length; i++) {
+      if (String(ncol[i][0]).toLowerCase() === u) { baris = i + 1; break; }
+    }
+    if (baris < 0) throw galat('Akun "' + u + '" tidak ditemukan.');
+    var salt = Utilities.getUuid();
+    sh.getRange(baris, judul.indexOf('salt') + 1).setValue(salt);
+    sh.getRange(baris, judul.indexOf('password_hash') + 1).setValue(hashKata_(pw, salt));
+    sh.getRange(baris, judul.indexOf('diubah') + 1).setValue(new Date().toISOString());
+  });
+  cabutSesi_(u); // semua sesi akun itu langsung hangus
+  catatLog(user, 'Mereset sandi akun ' + u);
+  return { ok: true };
+}
+
+/** Jalankan sekali dari editor untuk membuat akun admin pertama: buatAdminAwal('admin', 'Ganti-Sandi-Ini', 'Nama Admin'). */
+function buatAdminAwal(username, password, nama) {
+  var u = String(username || '').trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,30}$/.test(u)) throw new Error('Username tidak valid.');
+  if (String(password).length < 6) throw new Error('Password minimal 6 karakter.');
+  var salt = Utilities.getUuid();
+  var bersih = validasi('Pengguna', { username: u, nama: nama || u, peran: 'Admin', salt: salt, password_hash: hashKata_(password, salt), aktif: 'Y', bagian: '', email: '' }, false);
+  var hasil = null;
+  denganKunci(function () {
+    var ada = bacaTabel('Pengguna').some(function (r) { return String(r.username).toLowerCase() === u; });
+    var sh = sheetTabel('Pengguna');
+    var judul = judulKolom(sh);
+    if (ada) {
+      var ncol = sh.getRange(1, judul.indexOf('username') + 1, sh.getLastRow(), 1).getValues();
+      for (var i = 1; i < ncol.length; i++) {
+        if (String(ncol[i][0]).toLowerCase() === u) {
+          sh.getRange(i + 1, judul.indexOf('salt') + 1).setValue(salt);
+          sh.getRange(i + 1, judul.indexOf('password_hash') + 1).setValue(bersih.password_hash);
+          sh.getRange(i + 1, judul.indexOf('nama') + 1).setValue(nama || u);
+          sh.getRange(i + 1, judul.indexOf('peran') + 1).setValue('Admin');
+          sh.getRange(i + 1, judul.indexOf('aktif') + 1).setValue('Y');
+          sh.getRange(i + 1, judul.indexOf('diubah') + 1).setValue(new Date().toISOString());
+          break;
+        }
+      }
+      hasil = 'diperbarui';
+    } else {
+      bersih.id = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+      bersih.dibuat = new Date().toISOString();
+      bersih.diubah = '';
+      sh.appendRow(judul.map(function (j) { return bersih[j] != null ? bersih[j] : ''; }));
+      hasil = 'dibuat';
+    }
+  });
+  cabutSesi_(u);
+  Logger.log('Akun ' + u + ' ' + hasil + '. Hapus fungsi ini tidak wajib; aman dibiarkan.');
+  return hasil;
+}
+function denganKunciNilai(fn) {
+  var kunci = LockService.getScriptLock();
+  kunci.waitLock(10000);
+  try { return fn(); } finally { kunci.releaseLock(); }
 }
 
 
@@ -360,14 +626,7 @@ function validasi(nama, data, sebagian) {
 function izinkan(tingkat, isAdmin) {
   if (tingkat === 'publik') return;
   if (tingkat === 'admin' && isAdmin) return;
-  throw galat(tingkat === 'admin' ? 'Perlu masuk sebagai admin.' : 'Aksi tidak diizinkan.');
-}
-
-function cekAdmin(pass) {
-  var benar = PropertiesService.getScriptProperties().getProperty('ADMIN_PASS');
-  if (!benar) throw galat('Kata sandi admin belum diatur di Script Properties.');
-  if (String(pass) !== benar) { Utilities.sleep(800); throw galat('Kata sandi salah.'); }
-  return true;
+  throw galat(tingkat === 'admin' ? 'Perlu masuk sebagai petugas.' : 'Aksi tidak diizinkan.');
 }
 
 function saring(nama, r, isAdmin) {

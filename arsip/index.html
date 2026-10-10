@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="arsip.css?v=2">
 </head>
 <body>
-<div class="demo-flag">Demo tampilan Arsip Dokumen (arsip.lsp.unimed.ac.id) — data contoh, belum tersambung ke penyimpanan.</div>
+<div class="demo-flag">Arsip Dokumen (arsip.lsp.unimed.ac.id) — tersambung ke server penyimpanan LSP.</div>
 <div id="app"></div>
 
 <script src="templat.js?v=2"></script>
@@ -27,6 +27,29 @@
   const romawi = (n) => ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][n - 1];
   const pad = (n) => String(n).padStart(3, '0');
   const PER = 10;
+  const API_URL = 'https://script.google.com/macros/s/AKfycby9YSQGGju1QDabN1FrdZrRyQLkDMa4ILFF6xqDechI0Al_ts_3vLYnUcLOjWLn0Rye/exec';
+  let SESI = null; // {token, username, nama, peran}
+
+  // Panggil backend (POST text/plain agar lolos CORS Apps Script).
+  async function api(aksi, isi) {
+    isi = isi || {};
+    if (SESI && SESI.token) isi.token = SESI.token;
+    let r;
+    try {
+      r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ aksi }, isi)) });
+    } catch (e) { throw new Error('Tidak bisa terhubung ke server. Periksa internet lalu coba lagi.'); }
+    let j;
+    try { j = JSON.parse(await r.text()); }
+    catch (e) { throw new Error('Server belum siap (izin atau deployment Apps Script belum benar).'); }
+    if (!j.ok) {
+      if (/Sesi berakhir|login kembali/i.test(j.pesan || '')) { keluarLokal(); login('Sesi berakhir. Silakan masuk kembali.'); }
+      throw new Error(j.pesan || 'Terjadi kesalahan.');
+    }
+    return j.data;
+  }
+  const simpanSesi = () => { try { (SESI && SESI.ingat ? localStorage : sessionStorage).setItem('arsip_sesi', JSON.stringify(SESI)); (SESI && SESI.ingat ? sessionStorage : localStorage).removeItem('arsip_sesi'); } catch (e) {} };
+  const muatSesi = () => { try { return JSON.parse(localStorage.getItem('arsip_sesi') || sessionStorage.getItem('arsip_sesi') || 'null'); } catch (e) { return null; } };
+  const keluarLokal = () => { SESI = null; try { localStorage.removeItem('arsip_sesi'); sessionStorage.removeItem('arsip_sesi'); } catch (e) {} };
 
   /* ---------- Kategori & data contoh ---------- */
   const KAT = [
@@ -200,11 +223,30 @@
   };
 
   /* ---------- Login & kerangka ---------- */
-  function login() {
+  let PESAN_LOGIN = '';
+  function login(pesan) {
+    if (pesan) PESAN_LOGIN = pesan;
+    // Coba pulihkan sesi tersimpan (seperti SIPINTAR: ingat saya 7 hari).
+    if (!SESI) {
+      const s = muatSesi();
+      if (s && s.token) { SESI = s; PERAN_AKTIF = s.peran; api('saya').then(() => { VIEW = 'ringkasan'; FK = ''; shell(); }).catch(() => { keluarLokal(); login(); }); return; }
+    }
     app.innerHTML = `<div class="login"><div class="art"><div><h1>Arsip dokumen LSP UNIMED</h1><p>Ruang kerja petugas untuk membuat, mencatat, menyimpan, dan menemukan kembali seluruh dokumen lembaga — dari surat undangan sampai berita acara asesmen.</p>
-      <ul><li>Buat surat dan dokumen dari templat berkop, nomor surat ketik manual</li><li>Atau unggah berkas yang sudah jadi</li><li>Surat masuk dengan disposisi, surat keluar dengan alur pengesahan</li><li>Riwayat revisi, pengingat masa berlaku, dan agenda terdekat</li></ul></div><p style="font-size:.85rem">Akses khusus petugas LSP. Login memakai akun yang sama dengan panel admin SIPINTAR.</p></div>
-      <form id="fL"><img src="../assets/img/logo-lsp.png" alt="LSP UNIMED"><h2>Masuk petugas</h2><label class="f">Username<input value="sekretariat" autocomplete="username"></label><label class="f">Password<input type="password" value="demo" autocomplete="current-password"></label><label class="f">Masuk sebagai<select id="loginPeran"><option>Ketua LSP</option><option>Admin</option><option selected>Sekretariat LSP</option><option>Administrasi</option><option>Bidang Sertifikasi</option><option>Manajemen Mutu</option><option>Bidang Skema</option></select></label><button class="btn" type="submit">Masuk</button><p class="muted" style="font-size:.84rem;margin:0">Demo: tekan Masuk, isian tidak diperiksa.</p><a href="../index.html" style="font-size:.88rem">Kembali ke situs LSP</a></form></div>`;
-    document.getElementById('fL').onsubmit = (e) => { e.preventDefault(); PERAN_AKTIF = document.getElementById('loginPeran').value; VIEW = 'ringkasan'; FK = ''; shell(); };
+      <ul><li>Buat surat dan dokumen dari templat berkop, nomor surat ketik manual</li><li>Atau unggah berkas yang sudah jadi</li><li>Surat masuk dengan disposisi, surat keluar dengan alur pengesahan</li><li>Riwayat revisi, pengingat masa berlaku, dan agenda terdekat</li></ul></div><p style="font-size:.85rem">Akses khusus petugas LSP. Satu akun satu peran; akun dibuat oleh Admin.</p></div>
+      <form id="fL"><img src="../assets/img/logo-lsp.png" alt="LSP UNIMED"><h2>Masuk petugas</h2>${PESAN_LOGIN ? `<p class="note" style="margin:0">${esc(PESAN_LOGIN)}</p>` : ''}<label class="f">Username<input name="u" required autocomplete="username" placeholder="mis. sekretariat"></label><label class="f">Password<input name="p" type="password" required autocomplete="current-password"></label><label style="display:flex;gap:8px;align-items:center;font-size:.88rem"><input type="checkbox" name="ingat" style="width:auto"> Ingat saya di perangkat ini (7 hari)</label><button class="btn" type="submit" id="bMasuk">Masuk</button><p class="muted" style="font-size:.84rem;margin:0" id="loginInfo">Menghubungkan ke server…</p><a href="../index.html" style="font-size:.88rem">Kembali ke situs LSP</a></form></div>`;
+    PESAN_LOGIN = '';
+    const f = document.getElementById('fL');
+    api('ping').then(() => { document.getElementById('loginInfo').textContent = 'Server tersambung. Silakan masuk.'; }).catch((e) => { document.getElementById('loginInfo').textContent = e.message; });
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('bMasuk'), info = document.getElementById('loginInfo');
+      btn.disabled = true; btn.textContent = 'Memeriksa…'; info.textContent = '';
+      try {
+        const d = await api('login', { data: { username: f.u.value.trim(), password: f.p.value, ingat: f.ingat.checked } });
+        SESI = Object.assign({}, d.user, { token: d.token, ingat: f.ingat.checked }); simpanSesi();
+        PERAN_AKTIF = d.user.peran; VIEW = 'ringkasan'; FK = ''; shell();
+      } catch (err) { info.textContent = err.message; btn.disabled = false; btn.textContent = 'Masuk'; }
+    };
   }
 
   function shell() {
@@ -213,7 +255,6 @@
     const reminders = DOCS.filter(d => bolehLihatKat(d.kat) && ['warn', 'bad'].includes(status(d)[1])).length;
     const smBuka = SM.filter(s => s.status !== 'Selesai').length, skTunggu = DOCS.filter(d => d.surat && d.alur === 'Diajukan').length;
     const tugasSaya = dispUntukSaya().length + (bolehSahkan() ? skTunggu : 0);
-    const opsiPeran = ['Ketua LSP', 'Admin', 'Sekretariat LSP', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'].map(r => `<option${r === PERAN_AKTIF ? ' selected' : ''}>${r}</option>`).join('');
     app.innerHTML = `<div class="shell"><aside class="side" id="side">
       <div class="brand"><img src="../assets/img/logo-lsp.png" alt=""><div><b>Arsip Dokumen</b><span>LSP UNIMED</span></div></div>
       <button data-v="ringkasan">Ringkasan${tugasSaya ? ` <span class="n hot">${tugasSaya}</span>` : ''}</button>
@@ -229,15 +270,15 @@
       <div class="grp">Lainnya</div>
       <button data-v="aktivitas">Riwayat aktivitas</button>
       <button data-v="pengguna">Pengguna & hak akses</button>
-      <div class="foot">Masuk sebagai <b style="color:#fff">${esc(PERAN_AKTIF)}</b><br><a href="#" id="out">Keluar</a> · <a href="../index.html">Situs LSP</a><br><label class="muted" style="font-size:.78rem">Demo peran: <select id="peran" style="width:auto;padding:2px 6px;font-size:.78rem">${opsiPeran}</select></label></div>
+      <div class="foot">Masuk sebagai <b style="color:#fff">${esc((SESI && SESI.nama) || PERAN_AKTIF)}</b> <span class="muted">@${esc((SESI && SESI.username) || '')} · ${esc(PERAN_AKTIF)}</span><br><a href="#" id="out">Keluar</a> · <a href="../index.html">Situs LSP</a><br><a href="#" id="ganti" style="font-size:.82rem">Ganti password</a></div>
     </aside><div class="main"><div class="top"><div style="display:flex;gap:10px;align-items:center;min-width:0"><button class="menu" id="menu" aria-label="Menu">☰</button><h1 id="title" style="margin:0"></h1></div><button class="btn" id="add">+ Dokumen baru</button></div><div id="view"></div></div></div>`;
     document.getElementById('side').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-v]'); if (!b) return;
       VIEW = b.dataset.v; FK = b.dataset.k || ''; document.body.classList.remove('nav-open'); render(); window.scrollTo(0, 0);
     });
     document.getElementById('menu').onclick = () => document.body.classList.toggle('nav-open');
-    document.getElementById('out').onclick = (e) => { e.preventDefault(); login(); };
-    document.getElementById('peran').onchange = (e) => { PERAN_AKTIF = e.target.value; if (!peranBolehAgenda() && VIEW === 'agenda') VIEW = 'ringkasan'; if (!bolehLihatKat(FK) && VIEW === 'dokumen' && FK) { VIEW = 'dokumen'; FK = ''; } shell(); };
+    document.getElementById('out').onclick = async (e) => { e.preventDefault(); try { await api('logout'); } catch (err) {} keluarLokal(); PERAN_AKTIF = ''; login(); };
+    document.getElementById('ganti').onclick = (e) => { e.preventDefault(); pergi('pengguna'); };
     document.getElementById('add').onclick = () => pilih();
     render();
   }
@@ -461,7 +502,7 @@
     v.innerHTML = `<p class="muted lead">Setiap pembuatan, pencatatan, pengesahan, disposisi, dan pengunduhan dokumen tercatat dan tidak dapat diubah.</p><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Petugas</th><th>Aktivitas</th></tr></thead><tbody>${LOG.map(l => `<tr><td data-l="Waktu" style="white-space:nowrap">${esc(l[0])}</td><td data-l="Petugas">${esc(l[1])}</td><td data-l="Aktivitas">${esc(l[2])}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
-  function vPengguna(v, T) {
+  async function vPengguna(v, T) {
     T.textContent = 'Pengguna & hak akses';
     const R = [
       ['Ketua LSP', 'Semua kategori', 'Ya', 'Ya', 'Ya'],
@@ -472,9 +513,42 @@
       ['Bidang Skema', 'Skema & MUK', 'Ya', 'Tidak', 'Tidak'],
       ['Administrasi', 'Surat-menyurat, rekaman asesmen', 'Ya', 'Tidak', 'Tidak']
     ];
-    v.innerHTML = `<p class="muted lead">Akun sama dengan panel admin SIPINTAR, sehingga petugas cukup punya satu username. Penambahan akun dan reset kata sandi dilakukan Admin di SIPINTAR → Pengguna.</p>
+    const kelola = ['Admin', 'Ketua LSP'].includes(kunciPeran());
+    v.innerHTML = `<p class="muted lead">Masuk sebagai <b>${esc((SESI && SESI.nama) || '')}</b> (@${esc((SESI && SESI.username) || '')} · ${esc(PERAN_AKTIF)}). Satu akun satu peran; password tersimpan sebagai hash di server.</p>
       <div class="table-wrap"><table><thead><tr><th>Peran</th><th>Kategori yang dapat diubah</th><th>Buat & unggah</th><th>Sahkan surat</th><th>Ubah kop & templat</th></tr></thead><tbody>${R.map(r => `<tr><td data-l="Peran"><b>${r[0]}</b></td><td data-l="Kategori">${r[1]}</td><td data-l="Buat & unggah">${r[2]}</td><td data-l="Sahkan surat">${r[3]}</td><td data-l="Ubah kop">${r[4]}</td></tr>`).join('')}</tbody></table></div>
+      <div class="panel" style="margin-top:14px"><h2>Ganti password saya</h2><form class="form" id="fPw"><label class="f">Password lama<input type="password" name="lama" required autocomplete="current-password"></label><label class="f">Password baru (min. 6 karakter)<input type="password" name="baru" required minlength="6" autocomplete="new-password"></label><div><button class="btn" type="submit">Simpan password</button></div><p class="muted" style="font-size:.84rem;margin:0" id="pwInfo"></p></form></div>
+      <div class="panel" style="margin-top:14px"><h2>Daftar akun</h2><div id="akunList"><p class="muted">Memuat…</p></div>${kelola ? `<h2 style="margin-top:16px">Buat akun baru</h2><form class="form" id="fAkun"><div class="row2"><label class="f">Username<input name="username" required pattern="[a-z0-9._-]{3,30}" placeholder="huruf kecil, mis. sekretariat"></label><label class="f">Nama lengkap<input name="nama" required></label></div><div class="row2"><label class="f">Peran<select name="peran"><option>Ketua LSP</option><option>Admin</option><option>Sekretariat</option><option>Administrasi</option><option>Bidang Sertifikasi</option><option>Manajemen Mutu</option><option>Bidang Skema</option></select></label><label class="f">Password awal (min. 6)<input type="password" name="password" required minlength="6" autocomplete="new-password"></label></div><div><button class="btn" type="submit">Buat akun</button></div><p class="muted" style="font-size:.84rem;margin:0" id="akunInfo"></p></form>` : '<p class="muted" style="font-size:.86rem">Penambahan akun dan reset sandi hanya oleh Admin atau Ketua LSP.</p>'}</div>
       <p class="muted" style="font-size:.86rem;margin-top:12px">Semua peran dapat melihat dan mengunduh dokumen kategori umum. Kategori asesor dan rekaman asesmen hanya terbuka untuk Sekretariat, Sertifikasi, dan Manajemen Mutu.</p>`;
+    const pw = v.querySelector('#fPw');
+    pw.onsubmit = async (e) => {
+      e.preventDefault();
+      const info = v.querySelector('#pwInfo'); info.textContent = 'Menyimpan…';
+      try { await api('gantiPassword', { data: { lama: pw.lama.value, baru: pw.baru.value } }); info.textContent = 'Password diganti. Semua sesi lama dinonaktifkan; silakan masuk ulang bila diminta.'; pw.reset(); }
+      catch (err) { info.textContent = err.message; }
+    };
+    const muatAkun = async () => {
+      const el = v.querySelector('#akunList');
+      try {
+        const list = await api('daftarPengguna');
+        el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Aktif</th>${kelola ? '<th>Reset sandi</th>' : ''}</tr></thead><tbody>${list.map(a => `<tr><td data-l="Username">@${esc(a.username)}</td><td data-l="Nama">${esc(a.nama)}</td><td data-l="Peran">${esc(a.peran)}</td><td data-l="Aktif">${esc(a.aktif || 'Y')}</td>${kelola ? `<td data-l="Reset"><button class="btn ghost" type="button" data-reset="${esc(a.username)}">Reset</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+        el.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
+          const pwBaru = prompt('Password baru untuk @' + b.dataset.reset + ' (min. 6 karakter):');
+          if (!pwBaru) return;
+          try { await api('aturSandi', { data: { username: b.dataset.reset, password: pwBaru } }); toast('Sandi @' + b.dataset.reset + ' direset'); }
+          catch (err) { toast(err.message); }
+        });
+      } catch (err) { el.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
+    };
+    muatAkun();
+    const fa = v.querySelector('#fAkun');
+    if (fa) fa.onsubmit = async (e) => {
+      e.preventDefault();
+      const info = v.querySelector('#akunInfo'); info.textContent = 'Membuat akun…';
+      try {
+        await api('buatPengguna', { data: { username: fa.username.value.trim(), nama: fa.nama.value.trim(), peran: fa.peran.value, password: fa.password.value } });
+        info.textContent = 'Akun dibuat.'; fa.reset(); muatAkun();
+      } catch (err) { info.textContent = err.message; }
+    };
   }
 
   /* ---------- Detail dokumen / surat keluar ---------- */

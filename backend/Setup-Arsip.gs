@@ -27,7 +27,7 @@ function buatDatabaseArsip() {
     AgendaButir: ['id', 'dibuat', 'diubah', 'agenda_id', 'nama', 'status', 'ket'],
     Templat: ['id', 'dibuat', 'diubah', 'tpl_id', 'nama', 'kat', 'ket'],
     Kop: ['id', 'dibuat', 'diubah', 'l1', 'l2', 'l3', 'l4', 'l5', 'kota', 'jabatan', 'nama', 'nip'],
-    Pengguna: ['id', 'dibuat', 'diubah', 'nama', 'peran', 'bagian', 'email', 'aktif'],
+    Pengguna: ['id', 'dibuat', 'diubah', 'username', 'nama', 'peran', 'salt', 'password_hash', 'aktif', 'bagian', 'email'],
     Log: ['id', 'dibuat', 'diubah', 'waktu', 'siapa', 'aksi']
   };
   Object.keys(TABEL).forEach(function (n) {
@@ -105,13 +105,13 @@ function isiContoh_(ss) {
     ['t000000005', '', '', 'hadir', 'Daftar hadir', 'MNJ', 'Daftar hadir kegiatan'],
     ['t000000006', '', '', 'notulen', 'Notulen rapat', 'MNJ', 'Notulen rapat']]);
   tambahBaris_(ss, 'Pengguna', [
-    ['u000000001', '', '', 'Ketua LSP', 'Ketua LSP', '', '', 'Y'],
-    ['u000000002', '', '', 'Admin Arsip', 'Admin', '', '', 'Y'],
-    ['u000000003', '', '', 'Sekretariat', 'Sekretariat', 'Sekretariat', '', 'Y'],
-    ['u000000004', '', '', 'Bidang Sertifikasi', 'Bidang Sertifikasi', 'Bidang Sertifikasi', '', 'Y'],
-    ['u000000005', '', '', 'Manajemen Mutu', 'Manajemen Mutu', 'Manajemen Mutu', '', 'Y'],
-    ['u000000006', '', '', 'Bidang Skema', 'Bidang Skema', 'Bidang Skema', '', 'Y'],
-    ['u000000007', '', '', 'Administrasi', 'Administrasi', 'Administrasi', '', 'Y']]);
+    ['u000000001', '', '', 'ketua', 'Ketua LSP', 'Ketua LSP', '', '', 'Y', '', ''],
+    ['u000000002', '', '', 'admin', 'Admin Arsip', 'Admin', '', '', 'Y', '', ''],
+    ['u000000003', '', '', 'sekretariat', 'Sekretariat', 'Sekretariat', '', '', 'Y', 'Sekretariat', ''],
+    ['u000000004', '', '', 'sertifikasi', 'Bidang Sertifikasi', 'Bidang Sertifikasi', '', '', 'Y', 'Bidang Sertifikasi', ''],
+    ['u000000005', '', '', 'mutu', 'Manajemen Mutu', 'Manajemen Mutu', '', '', 'Y', 'Manajemen Mutu', ''],
+    ['u000000006', '', '', 'skema', 'Bidang Skema', 'Bidang Skema', '', '', 'Y', 'Bidang Skema', ''],
+    ['u000000007', '', '', 'administrasi', 'Administrasi', 'Administrasi', '', '', 'Y', 'Administrasi', '']]);
   tambahBaris_(ss, 'Dokumen', [
     ['d000000001', '2026-10-05T00:00:00', '', '072/LSP-UNIMED/SK/X/2026', 'ASR', 'SK Ketua LSP tentang Penugasan Asesor 17 Oktober 2026', 'Sekretariat', '2026-10-05', '', 'Disahkan', 1, 'Disahkan', 'Y', 'sk', '{"tanggal":"2026-10-05"}', '', '', ''],
     ['d000000002', '2026-10-09T00:00:00', '', '074/LSP-UNIMED/UND/X/2026', 'MNJ', 'Undangan Rapat Pleno Hasil Uji Kompetensi', 'Sekretariat', '2026-10-09', '', 'Draf', 1, 'Draf', 'Y', 'undangan', '{"tanggal":"2026-10-09","tglAcara":"2026-10-20"}', '', '', ''],

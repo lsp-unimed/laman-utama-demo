@@ -26,12 +26,27 @@ Templat, Kop, Pengguna, Log + Petunjuk.
 5. Deploy > New deployment > Web app → Execute as: **Me** → Access: **Anyone** →
    salin URL `/exec` → simpan sebagai `API_URL` frontend.
 
+## Login (seperti SIPINTAR: username + password)
+
+- Akun tersimpan di tab `Pengguna` (kolom `username, nama, peran, salt,
+  password_hash, aktif`). Password tidak pernah tersimpan polos.
+- Sesi memakai token (6 jam; "ingat saya" 7 hari), diperiksa ulang setiap
+  permintaan: akun dinonaktifkan / peran diubah / sandi diganti langsung berlaku.
+- Akun pertama: di editor Apps Script jalankan sekali
+  `buatAdminAwal('admin', 'Ganti-Sandi-Ini', 'Nama Admin')`, lalu Deploy ulang
+  (Manage deployments > pensil > New version). Setelah bisa login, buat akun
+  lain dari menu Pengguna (hanya Admin/Ketua) dan catat password awal di luar repo.
+- Di frontend `arsip/index.html`: `API_URL` sudah diisi URL `/exec` deployment ini.
+  Buka halaman arsip, masuk dengan username + password.
+
 ## API
 
-- GET (baca): `?aksi=list&tabel=Dokumen`, `?aksi=ambil&tabel=Dokumen&id=...`,
-  `?aksi=ping`, `?aksi=skema`
-- POST (tulis, butuh `pass`): `{aksi:'tambah'|'ubah'|'hapus', tabel, id, data, pass}`
-- Khusus: `cekNomor {nomor}`, `saranNomor {jenis,bulan,tahun}`, `ringkasan {}`
+- GET (tanpa login): `?aksi=ping`
+- POST (login): `{aksi:'login', data:{username, password, ingat}}`
+- POST (sesudah login, sertakan `token`): `saya`, `logout`, `gantiPassword`,
+  `daftarPengguna`, `buatPengguna`, `aturSandi`,
+  `{aksi:'list'|'ambil'|'tambah'|'ubah'|'hapus', tabel, id, data, opsi, token}`
+- Khusus (butuh login): `cekNomor {nomor}`, `saranNomor {jenis,bulan,tahun}`, `ringkasan {}`
 
 ## Catatan
 
