@@ -723,14 +723,29 @@
       <label class="f">Kategori arsip<select name="kat">${katBoleh.map(k => `<option value="${k[0]}"${k[0] === d.kat ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select></label>
       <label class="f">Penanggung jawab<input name="pemilik" value="${esc(d.pemilik || '')}"></label>
       <div class="row2"><label class="f">Tanggal<input type="date" name="terbit" value="${esc(d.terbit || '')}"></label><label class="f">Berlaku sampai (opsional)<input type="date" name="sampai" value="${esc(d.sampai || '')}"></label></div>
-      <label class="f">Tautan berkas Drive (agar nama berkas bisa diklik)<input name="tautan" value="${esc(d.file_url || '')}" placeholder="https://drive.google.com/..."></label>
-      <div><button class="btn" type="submit">Simpan perubahan</button></div></form>`);
+      <label class="f">Ganti berkas (opsional, PDF/DOCX/XLSX/JPG maks 10 MB)<input type="file" name="berkas" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"></label>
+      <label class="f">atau tautan berkas Drive (agar nama berkas bisa diklik)<input name="tautan" value="${esc(d.file_url || '')}" placeholder="https://drive.google.com/..."></label>
+      <div><button class="btn" type="submit" id="btnED">Simpan perubahan</button></div></form>`);
     const f = back.querySelector('#fED');
-    f.onsubmit = (e) => {
+    f.onsubmit = async (e) => {
       e.preventDefault();
       const k = f.kat.value;
       if (!bolehUbahKat(k)) { toast('Kategori ' + k + ' di luar wewenang peran Anda'); return; }
-      Object.assign(d, { judul: f.judul.value.trim(), kat: k, pemilik: f.pemilik.value.trim() || d.pemilik, terbit: f.terbit.value, sampai: f.sampai.value, file_url: f.tautan.value.trim() });
+      const btn = back.querySelector('#btnED'); btn.disabled = true; btn.textContent = 'Menyimpan…';
+      let file_id = d.file_id || '', file_nama = d.berkas, file_url = f.tautan.value.trim();
+      try {
+        const fl = await bacaBerkas(f.berkas);
+        if (fl) {
+          if (file_url && file_url !== (d.file_url || '')) { file_nama = fl.nama; }
+          else {
+            try {
+              const up = await api('unggahBerkas', { data: { nama: fl.nama, mime: fl.mime, base64: fl.base64, kat: k } });
+              file_id = up.file_id || file_id; file_nama = up.file_nama || fl.nama; file_url = up.file_url || file_url;
+            } catch (err) { toast(err.message + ' Data tetap disimpan tanpa mengganti tautan.'); }
+          }
+        }
+      } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = 'Simpan perubahan'; return; }
+      Object.assign(d, { judul: f.judul.value.trim(), kat: k, pemilik: f.pemilik.value.trim() || d.pemilik, terbit: f.terbit.value, sampai: f.sampai.value, file_id, berkas: file_nama || d.berkas, file_url });
       catat('Mengubah data ' + d.kode); tutupDrawer(); toast('Perubahan tersimpan: ' + d.kode); shell(); detail(id);
     };
   }
