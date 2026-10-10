@@ -430,7 +430,8 @@ function hanyaPengelola_(user) {
 
 function daftarPengguna_(user) {
   hanyaPengelola_(user);
-  return bacaTabel('Pengguna').map(function (r) {
+  // Baris contoh lama tanpa username disembunyikan (tanpa username tidak bisa login juga).
+  return bacaTabel('Pengguna').filter(function (r) { return String(r.username || '').trim(); }).map(function (r) {
     return { username: r.username, nama: r.nama, peran: r.peran, aktif: r.aktif, bagian: r.bagian, email: r.email };
   });
 }

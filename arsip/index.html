@@ -530,7 +530,7 @@
       const el = v.querySelector('#akunList');
       try {
         const list = await api('daftarPengguna');
-        el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Aktif</th>${kelola ? '<th>Kelola</th>' : ''}</tr></thead><tbody>${list.map(a => `<tr><td data-l="Username">@${esc(a.username)}</td><td data-l="Nama">${esc(a.nama)}</td><td data-l="Peran">${esc(a.peran)}</td><td data-l="Aktif">${esc(a.aktif || 'YA')}</td>${kelola ? `<td data-l="Kelola"><button class="btn ghost" type="button" data-ubah="${esc(a.username)}">Ubah</button> <button class="btn ghost" type="button" data-reset="${esc(a.username)}">Reset sandi</button> <button class="btn ghost" type="button" data-hapus="${esc(a.username)}">Hapus</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+        el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Aktif</th>${kelola ? '<th>Kelola</th>' : ''}</tr></thead><tbody>${list.map(a => { const un = a.username || ''; return `<tr><td data-l="Username">${un ? '@' + esc(un) : '<span class="muted">— tanpa username</span>'}</td><td data-l="Nama">${esc(a.nama)}</td><td data-l="Peran">${esc(a.peran)}</td><td data-l="Aktif">${esc(a.aktif || 'YA')}</td>${kelola ? (un ? `<td data-l="Kelola"><button class="btn ghost" type="button" data-ubah="${esc(un)}">Ubah</button> <button class="btn ghost" type="button" data-reset="${esc(un)}">Reset sandi</button> <button class="btn ghost" type="button" data-hapus="${esc(un)}">Hapus</button></td>` : '<td data-l="Kelola"><span class="muted" style="font-size:.82rem">Perbaiki di sheet: kolom username kosong</span></td>') : ''}</tr>`; }).join('')}</tbody></table></div>`;
         el.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
           const pwBaru = prompt('Password baru untuk @' + b.dataset.reset + ' (min. 8 karakter):');
           if (!pwBaru) return;
@@ -550,6 +550,7 @@
       const box = v.querySelector('#editAkun');
       const opsi = ['Ketua LSP', 'Admin', 'Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'].map(p => `<option${p === a.peran ? ' selected' : ''}>${p}</option>`).join('');
       box.innerHTML = `<h2 style="margin-top:16px">Ubah akun @${esc(usernameLama)}</h2><form class="form" id="fUbah"><div class="row2"><label class="f">Username baru<input name="username" required pattern="[a-z0-9._]{3,30}" value="${esc(a.username)}"></label><label class="f">Nama lengkap<input name="nama" required value="${esc(a.nama)}"></label></div><div class="row2"><label class="f">Peran<select name="peran">${opsi}</select></label><label class="f">Status<select name="aktif"><option value="YA"${(a.aktif || 'YA') === 'YA' ? ' selected' : ''}>YA (aktif)</option><option value="TIDAK"${a.aktif === 'TIDAK' ? ' selected' : ''}>TIDAK (nonaktif)</option></select></label></div><label class="f">Password baru (kosongkan bila tidak diganti, min. 8)<input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="kosongkan bila tidak diganti"></label><div style="display:flex;gap:8px"><button class="btn" type="submit">Simpan perubahan</button><button class="btn ghost" type="button" id="bBatalUbah">Batal</button></div><p class="muted" style="font-size:.84rem;margin:0" id="ubahInfo"></p></form>`;
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
       box.querySelector('#bBatalUbah').onclick = () => { box.innerHTML = ''; };
       box.querySelector('#fUbah').onsubmit = async (e) => {
         e.preventDefault();
@@ -596,7 +597,13 @@
       aksi = `<div class="steps">${ALUR.map((x, j) => `<div class="${i >= j ? 'on' : ''}">${x === 'Disahkan' ? 'Disahkan Ketua' : x}</div>`).join('')}</div>${aksi ? `<div class="acts">${aksi}</div>` : ''}${d.alur === 'Diajukan' && !bolehSahkan() ? '<p class="muted" style="font-size:.82rem;margin-top:-8px">Tombol Sahkan hanya tampil untuk akun Ketua LSP; Ketua menerima pemberitahuan saat ada surat diajukan.</p>' : ''}`;
       if (!bisaUbah && !bolehSahkan() && d.alur === 'Draf') aksi += '';
     } else if (d.tpl && d.status === 'Draf' && bisaUbah) aksi = '<div class="acts"><button class="btn ghost" data-a="ubah">Ubah draf</button></div>';
-    else if (!bisaUbah) aksi = '<p class="note">Dokumen ini baca-saja untuk peran Anda.</p>';
+    else if (!bisaUbah && !d.surat) aksi = '<p class="note">Dokumen ini baca-saja untuk peran Anda.</p>';
+    // Kelola dokumen: ubah data, arsipkan (draf non-surat), hapus (draf) — khusus yang berwenang di kategori ini.
+    if (bisaUbah) {
+      const bsArsip = !d.surat && d.status === 'Draf';
+      const bsHapus = d.surat ? d.alur === 'Draf' : d.status === 'Draf';
+      aksi += `<div class="acts"><button class="btn ghost" data-a="edit">Ubah data</button>${bsArsip ? '<button class="btn ghost" data-a="arsip">Arsipkan</button>' : ''}${bsHapus ? '<button class="btn ghost" data-a="hapus">Hapus</button>' : ''}</div>`;
+    }
     const back = drawer(`<div class="code" style="color:var(--red)">${esc(d.kode)}</div><h2 style="font-size:1.25rem;margin-top:6px">${esc(d.judul)}</h2>${d.surat ? `<span class="badge ${alurB[d.alur]}">${d.alur}</span>` : `<span class="badge ${s[1]}">${s[0]}</span>`}
       ${aksi}
       <dl class="kv"><dt>Kategori</dt><dd>${esc(katNama(d.kat))}</dd><dt>Penanggung jawab</dt><dd>${esc(d.pemilik)}</dd><dt>Tanggal</dt><dd>${tgl(d.terbit)}</dd><dt>Berlaku sampai</dt><dd>${d.sampai ? tgl(d.sampai) : 'Tidak terbatas'}</dd><dt>Sumber</dt><dd>${d.tpl ? 'Dibuat dari templat ' + esc((window.TEMPLAT.find(t => t.id === d.tpl.id) || {}).nama || '') : 'Berkas diunggah'}</dd><dt>Masa simpan</dt><dd>${esc((KAT.find(k => k[0] === d.kat) || [])[3])}</dd><dt>Akses</dt><dd>${d.kat === 'ASM' || d.kat === 'ASR' ? 'Terbatas: Sekretariat, Sertifikasi, Manajemen Mutu' : 'Seluruh petugas LSP'}</dd></dl>
@@ -615,8 +622,32 @@
       else if (act === 'kembali') { if (!bolehSahkan()) { toast('Hanya Ketua LSP'); return; } ubahAlur('Draf', 'Mengembalikan ke draf', 'Ketua LSP'); }
       else if (act === 'sahkan') ubahAlur('Disahkan', 'Mengesahkan', 'Ketua LSP');
       else if (act === 'kirim') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } ubahAlur('Terkirim', 'Menandai terkirim'); }
+      else if (act === 'edit') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } tutupDrawer(); formEditDok(id); }
+      else if (act === 'arsip') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } d.status = 'Berlaku'; if (!d.terbit) d.terbit = HARI_INI; catat('Mengarsipkan ' + d.kode); toast('Diarsipkan: ' + d.kode); shell(); detail(id); }
+      else if (act === 'hapus') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } if (!confirm('Hapus ' + (d.surat ? 'surat ' : 'dokumen ') + d.kode + ' — ' + d.judul + '?')) return; DOCS = DOCS.filter(x => x.id !== id); catat('Menghapus ' + d.kode); tutupDrawer(); shell(); toast('Dihapus: ' + d.kode); }
       else toast(act);
     });
+  }
+
+  /* ---------- Ubah data dokumen (judul, kategori, penanggung jawab, tanggal) ---------- */
+  function formEditDok(id) {
+    const d = DOCS.find(x => x.id === id);
+    if (!bolehUbahKat(d.kat)) { toast('Di luar kategori Anda'); return; }
+    const katBoleh = KAT.filter(k => bolehUbahKat(k[0]));
+    const back = drawer(`<h2>Ubah data dokumen</h2><p class="muted" style="margin-top:-6px">${esc(d.kode)}</p>
+      <form class="form" id="fED"><label class="f">Judul / perihal<input name="judul" required value="${esc(d.judul)}"></label>
+      <label class="f">Kategori arsip<select name="kat">${katBoleh.map(k => `<option value="${k[0]}"${k[0] === d.kat ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select></label>
+      <label class="f">Penanggung jawab<input name="pemilik" value="${esc(d.pemilik || '')}"></label>
+      <div class="row2"><label class="f">Tanggal<input type="date" name="terbit" value="${esc(d.terbit || '')}"></label><label class="f">Berlaku sampai (opsional)<input type="date" name="sampai" value="${esc(d.sampai || '')}"></label></div>
+      <div><button class="btn" type="submit">Simpan perubahan</button></div></form>`);
+    const f = back.querySelector('#fED');
+    f.onsubmit = (e) => {
+      e.preventDefault();
+      const k = f.kat.value;
+      if (!bolehUbahKat(k)) { toast('Kategori ' + k + ' di luar wewenang peran Anda'); return; }
+      Object.assign(d, { judul: f.judul.value.trim(), kat: k, pemilik: f.pemilik.value.trim() || d.pemilik, terbit: f.terbit.value, sampai: f.sampai.value });
+      catat('Mengubah data ' + d.kode); tutupDrawer(); toast('Perubahan tersimpan: ' + d.kode); shell(); detail(id);
+    };
   }
 
   /* ---------- Dokumen baru: pilih cara ---------- */
