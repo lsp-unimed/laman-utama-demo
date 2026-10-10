@@ -30,11 +30,11 @@
 
   /* Kop & penandatangan bawaan — dapat diubah di menu Templat dokumen */
   const KOP = {
-    l1: 'KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI',
+    l1: 'LEMBAGA SERTIFIKASI PROFESI',
     l2: 'UNIVERSITAS NEGERI MEDAN',
-    l3: 'LEMBAGA SERTIFIKASI PROFESI P1',
-    l4: 'Jl. Willem Iskandar Pasar V Medan Estate, Medan 20221 · Telepon (061) 6625971',
-    l5: 'lsp.unimed.ac.id · lspunimed@unimed.ac.id · Lisensi BNSP No. BNSP-LSP-1928-ID',
+    l3: 'Sertifikat Lisensi Nomor : BNSP-LSP-1928-ID',
+    l4: 'Sekretariat: Gedung FT, Jl. Willem Iskandar Pasar V, Medan Estate, Medan, 20221',
+    l5: 'Website : https://lsp.unimed.ac.id',
     kota: 'Medan',
     jabatan: 'Ketua LSP Universitas Negeri Medan',
     nama: 'Nama Ketua LSP',
@@ -42,8 +42,8 @@
   };
   window.KOP = KOP;
   const img = (f) => new URL('../assets/img/' + f, location.href).href;
-  const kop = () => `<div class="kop"><img src="${img('logo-unimed.png')}" alt=""><div><div class="l1">${esc(KOP.l1)}</div><div class="l2">${esc(KOP.l2)}</div><div class="l3">${esc(KOP.l3)}</div><div class="l4">${esc(KOP.l4)}</div><div class="l4">${esc(KOP.l5)}</div></div><img src="${img('logo-lsp.png')}" alt=""></div>`;
-  const ttd = (d, o) => `<div class="ttd"><div>${o && o.atas ? esc(o.atas) + '<br>' : `${esc(KOP.kota)}, ${tglPanjang(d.tanggal)}<br>`}${esc(d.ttdJabatan)},<div class="sp"></div><b class="u">${esc(d.ttdNama)}</b><br>${esc(d.ttdNip)}</div></div>`;
+  const kop = () => `<div class="kop"><img class="kiri" src="${img('logo-lsp.png')}" alt=""><div><div class="l1">${esc(KOP.l1)}</div><div class="l2">${esc(KOP.l2)}</div><div class="l3">${esc(KOP.l3)}</div><div class="l4">${esc(KOP.l4)}</div><div class="l4">${esc(KOP.l5)}</div></div><img class="kanan" src="${img('logo-bnsp.png')}" alt=""></div>`;
+  const ttd = (d, o) => { const kepala = (o && o.tanpaTanggal) ? '' : (o && o.atas ? esc(o.atas) + '<br>' : `${esc(KOP.kota)}, ${tglPanjang(d.tanggal)}<br>`); return `<div class="ttd"><div>${kepala}${esc(d.ttdJabatan)},<div class="sp"></div><b class="u">${esc(d.ttdNama)}</b><br>${esc(d.ttdNip)}</div></div>`; };
   const ttd2 = (a, b) => `<div class="ttd2">${[a, b].map(p => `<div>${esc(p[0])},<div class="sp"></div><b class="u">${esc(p[1])}</b>${p[2] ? '<br>' + esc(p[2]) : ''}</div>`).join('')}</div>`;
   const meta = (pairs) => `<table class="meta">${pairs.map(p => `<tr><td>${esc(p[0])}</td><td>:</td><td>${p[2] ? p[1] : esc(p[1])}</td></tr>`).join('')}</table>`;
   const judulTengah = (j, no) => `<div class="judul"><b class="u">${esc(j)}</b>${no ? `<div>Nomor: ${esc(no)}</div>` : ''}</div>`;
@@ -78,7 +78,7 @@
           <div class="kpd">Yth. ${kp.length > 1 ? ol(kp) : esc(kp[0] || '')}<div>di tempat</div></div>
           <p>Dengan hormat,</p>${para(d.pembuka)}
           <div class="ind">${meta([['Hari/tanggal', hariTgl(d.tglAcara)], ['Waktu', d.waktu], ['Tempat', d.tempat], ['Acara', lines(d.acara).length > 1 ? ol(lines(d.acara)) : esc(d.acara), 1]])}</div>
-          ${para(d.penutup)}${ttd(d)}${lines(d.tembusan).length ? `<div class="tembusan">Tembusan:${ol(lines(d.tembusan))}</div>` : ''}`;
+          ${para(d.penutup)}${ttd(d, { tanpaTanggal: true })}${lines(d.tembusan).length ? `<div class="tembusan">Tembusan:${ol(lines(d.tembusan))}</div>` : ''}`;
       }
     },
     {
@@ -97,12 +97,12 @@
       ],
       isi: (d, no) => {
         const ds = lines(d.dasar), pt = rows(d.petugas);
-        return `${kop()}${judulTengah('SURAT TUGAS', no)}
+        return `${kop()}<div class="r" style="margin-bottom:6pt">${esc(KOP.kota)}, ${tglPanjang(d.tanggal)}</div>${judulTengah('SURAT TUGAS', no)}
           ${ds.length ? `<table class="meta"><tr><td>Dasar</td><td>:</td><td>${ds.length > 1 ? ol(ds) : esc(ds[0])}</td></tr></table>` : ''}
           <p>Ketua Lembaga Sertifikasi Profesi Universitas Negeri Medan menugaskan kepada:</p>
           <table class="tbl"><thead><tr><th style="width:8%">No.</th><th>Nama</th><th>NIP / No. Reg.</th><th>Tugas</th></tr></thead><tbody>${pt.map((r, i) => `<tr><td class="c">${i + 1}.</td><td>${esc(r[0])}</td><td>${esc(r[1] || '')}</td><td>${esc(r[2] || '')}</td></tr>`).join('')}</tbody></table>
           ${meta([['Untuk', d.keperluan], ['Hari/tanggal', hariTgl(d.tglTugas)], ['Waktu', d.waktu], ['Tempat', d.tempat]])}
-          ${para(d.penutup)}${ttd(d)}`;
+          ${para(d.penutup)}${ttd(d, { tanpaTanggal: true })}`;
       }
     },
     {
@@ -231,9 +231,11 @@
   .kertas p{margin:0 0 8pt}.kertas .j{text-align:justify}.kertas .c{text-align:center}.kertas .r{text-align:right;white-space:nowrap}
   .kertas .u{text-decoration:underline}.kertas h4{font-size:12pt;margin:12pt 0 4pt}
   .kertas ol{margin:0 0 8pt;padding-left:18pt}.kertas li{margin:0 0 2pt;text-align:justify}
-  .kertas .kop{display:grid;grid-template-columns:22mm 1fr 22mm;gap:4mm;align-items:center;text-align:center;border-bottom:4px double #000;padding-bottom:2.5mm;margin-bottom:6mm}
+  .kertas .kop{display:grid;grid-template-columns:22mm 1fr 34mm;gap:4mm;align-items:center;text-align:center;border-bottom:1.5pt solid #000;padding-bottom:1.5mm;margin-bottom:5mm}
+  .kertas .kop>div{min-width:0}
   .kertas .kop img{width:21mm;height:21mm;object-fit:contain}
-  .kertas .kop .l1{font-size:10.5pt;line-height:1.2;white-space:nowrap}.kertas .kop .l2{font-size:13pt;font-weight:bold;line-height:1.25}.kertas .kop .l3{font-size:14pt;font-weight:bold;line-height:1.25}.kertas .kop .l4{font-size:9pt;line-height:1.3;white-space:nowrap}
+  .kertas .kop img.kanan{width:32mm;height:16mm}
+  .kertas .kop .l1{font-size:13pt;font-weight:bold;line-height:1.25;white-space:nowrap}.kertas .kop .l2{font-size:13pt;font-weight:bold;line-height:1.25;white-space:nowrap}.kertas .kop .l3{font-size:10.5pt;font-weight:bold;line-height:1.3;white-space:nowrap}.kertas .kop .l4{font-size:8.5pt;line-height:1.25;white-space:nowrap}
   .kertas table{border-collapse:collapse}
   .kertas .meta{margin:0 0 8pt}.kertas .meta td{padding:0 4pt 1pt 0;vertical-align:top}.kertas .meta td:first-child{white-space:nowrap;min-width:28mm}.kertas .meta td:nth-child(2){width:8pt}
   .kertas .meta ol{margin:0;padding-left:14pt}
@@ -278,7 +280,9 @@
     ada = ada || null;
     const data = Object.assign(bawaan(t, API.hariIni), ada ? ada.data : {});
     let kat = ada ? ada.kat : t.kat;
-    const nomor = () => ada ? ada.nomor : (t.surat ? API.nomorSurat(t.kode, data.tanggal) : API.nomorDok(kat));
+    const saran = () => (t.surat ? API.nomorSurat(t.kode, data.tanggal || API.hariIni) : API.nomorDok(kat));
+    const nomor = () => ada ? ada.nomor : (t.surat ? (data._nomor || '').trim() : API.nomorDok(kat));
+    const riwayatNo = () => (t.surat && !ada && API.nomorTerakhir) ? API.nomorTerakhir(5) : [];
 
     // susun field: pasangan "half" digabung dalam satu baris
     let html = '', buf = [];
@@ -299,20 +303,20 @@
         <div class="ed-act"><button class="btn ghost" data-x>Batal</button><button class="btn ghost" data-print>Cetak / PDF</button><button class="btn ghost" data-save="Draf">Simpan draf</button>${t.surat ? '<button class="btn" data-save="Diajukan">Ajukan pengesahan</button>' : '<button class="btn" data-save="Berlaku">Simpan & arsipkan</button>'}</div></div>
       <div class="ed-tabs"><button class="on" data-tab="f">Isi formulir</button><button data-tab="p">Pratinjau</button></div>
       <div class="ed-body"><form class="ed-form form" autocomplete="off">
-        <div class="nobox"><span>Nomor ${t.surat ? 'surat' : 'dokumen'} (otomatis)</span><b id="edNo"></b><small>${ada ? 'Nomor sudah dikunci.' : 'Nomor dikunci saat disimpan, sehingga tidak ada nomor ganda.'}</small></div>
+        ${t.surat && !ada ? `<label class="f">Nomor surat (ketik manual)<input name="_nomor" value="${esc(saran())}" placeholder="mis. 075/LSP-UNIMED/UND/X/2026"><small>Saran urutan berikutnya: ${esc(saran())}. Nomor terakhir: ${(riwayatNo().map(esc).join(', ') || '—')}</small></label>` : `<div class="nobox"><span>Nomor ${t.surat ? 'surat' : 'dokumen'} (otomatis)</span><b id="edNo"></b><small>${ada ? 'Nomor sudah dikunci.' : 'Nomor dikunci saat disimpan, sehingga tidak ada nomor ganda.'}</small></div>`}
         <label class="f">Simpan di kategori<select name="_kat">${API.KAT.map(k => `<option value="${k[0]}"${k[0] === kat ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select></label>
         ${html}
       </form><div class="ed-prev"><div class="skala"><div class="kertas" id="edKertas"></div></div></div></div></div>`);
 
     const ed = document.querySelector('.editor'), f = ed.querySelector('form'), K = ed.querySelector('#edKertas'), sk = ed.querySelector('.skala'), pv = ed.querySelector('.ed-prev');
     document.body.classList.add('ed-open');
-    const baca = () => { t.fields.forEach(x => { if (f[x.k]) data[x.k] = f[x.k].value; }); kat = f._kat.value; };
+    const baca = () => { t.fields.forEach(x => { if (f[x.k]) data[x.k] = f[x.k].value; }); if (f._nomor) data._nomor = f._nomor.value; kat = f._kat.value; };
     const skala = () => {
       if (pv.clientWidth < 60) return;
       const s = Math.min(1, (pv.clientWidth - 24) / K.offsetWidth);
       K.style.transform = `scale(${s})`; sk.style.width = K.offsetWidth * s + 'px'; sk.style.height = K.offsetHeight * s + 'px';
     };
-    const gambar = () => { baca(); const no = nomor(); ed.querySelector('#edNo').textContent = no; K.innerHTML = t.isi(data, no); skala(); };
+    const gambar = () => { baca(); const no = nomor(); const slot = ed.querySelector('#edNo'); if (slot) slot.textContent = no; K.innerHTML = t.isi(data, no || saran()); skala(); };
     let tm; f.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(gambar, 120); });
     f.addEventListener('change', gambar);
     const ro = new ResizeObserver(skala); ro.observe(pv);
@@ -328,6 +332,8 @@
       if (sv) {
         gambar();
         const no = nomor();
+        if (t.surat && !ada && !no) { alert('Isi nomor surat dulu.'); return; }
+        if (t.surat && !ada && API.nomorTerakhir && API.nomorTerakhir(500).includes(no)) { alert('Nomor ' + no + ' sudah dipakai. Ganti dengan nomor lain.'); return; }
         tutup();
         API.simpan({ id: ada && ada.id, kat, judul: t.judul(data), nomor: no, surat: t.surat, jenis: t.nama, alur: sv.dataset.save, tanggal: data.tanggal, tpl: { id: t.id, data: Object.assign({}, data) } });
       }
