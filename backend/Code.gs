@@ -527,8 +527,10 @@ function aturSandi_(user, d) {
 function buatAdminPertama() {
   var pw = Utilities.getUuid().replace(/-/g, '').slice(0, 10) + 'A1';
   var hasil = buatAdminAwal('admin', pw, 'Admin Arsip');
-  Logger.log('Akun admin ' + hasil + '. Username: admin | Password: ' + pw + ' | Segera ganti setelah login via menu Pengguna.');
-  return hasil;
+  var pesan = 'Akun admin ' + hasil + '. Username: admin | Password: ' + pw + ' | Segera ganti setelah login via menu Pengguna.';
+  Logger.log(pesan);
+  console.log(pesan);
+  return pesan;
 }
 
 /** Jalankan sekali dari editor untuk membuat akun admin pertama: buatAdminAwal('admin', 'Ganti-Sandi-Min-8', 'Nama Admin'). */
