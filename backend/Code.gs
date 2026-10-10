@@ -807,7 +807,30 @@ function hapusCache(nama) { CacheService.getScriptCache().remove('list:' + nama)
 /** Jalankan sekali dari editor: membuat/menyesuaikan semua tab dan memicu layar izin Google. */
 function siapkanSheet() {
   Object.keys(SKEMA).forEach(function (n) { sheetTabel(n); });
+  migrasiPengguna_();
   Logger.log('Siap: ' + Object.keys(SKEMA).join(', '));
+}
+
+/** Melengkapi tab Pengguna lama (tanpa kolom username): tambah kolom + isi username dari nama. */
+function migrasiPengguna_() {
+  var sh = sheetTabel('Pengguna');
+  var judul = judulKolom(sh);
+  var peta = { 'ketua lsp': 'ketua', 'admin arsip': 'admin', 'sekretariat': 'sekretariat', 'bidang sertifikasi': 'sertifikasi', 'manajemen mutu': 'mutu', 'bidang skema': 'skema', 'administrasi': 'administrasi' };
+  var iu = judul.indexOf('username') + 1, ina = judul.indexOf('nama') + 1, iak = judul.indexOf('aktif') + 1;
+  if (!iu || !ina) return 'Kolom username/nama tidak ada.';
+  var n = sh.getLastRow(), isi = 0, pasangY = 0;
+  if (n < 2) return 'Pengguna kosong.';
+  var un = sh.getRange(2, iu, n - 1, 1).getValues(), nm = sh.getRange(2, ina, n - 1, 1).getValues(), ak = iak ? sh.getRange(2, iak, n - 1, 1).getValues() : [];
+  for (var i = 0; i < un.length; i++) {
+    if (!String(un[i][0] || '').trim()) {
+      var u = peta[String(nm[i][0] || '').trim().toLowerCase()] || '';
+      if (u) { sh.getRange(i + 2, iu).setValue(u); un[i][0] = u; isi++; }
+    }
+    if (iak && String(ak[i][0] || '').toUpperCase() === 'Y') { sh.getRange(i + 2, iak).setValue('YA'); pasangY++; }
+  }
+  var pesan = 'Migrasi Pengguna: ' + isi + ' username diisi, ' + pasangY + ' status Y→YA. Akun contoh belum bisa login sebelum diberi sandi via Reset sandi.';
+  Logger.log(pesan);
+  return pesan;
 }
 
 function amankanSel(v) { return /^[=+\-@]/.test(v) ? "'" + v : v; }
