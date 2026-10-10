@@ -21,7 +21,7 @@
  */
 
 var CONFIG = {
-  SPREADSHEET_ID: '', // WAJIB diisi bila script dibuat dari script.google.com (standalone).
+  SPREADSHEET_ID: '1FuefPlkCHgFlfxSeVkazU369uAz1zx4eslYNc-aii80', // ID Database Arsip LSP UNIMED (diisi Pak Boss 10 Okt 2026).
   // Cara isi: buka spreadsheet Database Arsip > salin ID dari URL
   // https://docs.google.com/spreadsheets/d/ID_INI/edit > tempel di sini > Save > Run.
   // Kosongkan ('') hanya bila script ditempel via Extensions > Apps Script dari spreadsheet itu.
