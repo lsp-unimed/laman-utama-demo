@@ -65,6 +65,29 @@
   const katNama = (k) => (KAT.find(x => x[0] === k) || [k, k])[1];
   const BAGIAN = ['Sekretariat', 'Administrasi', 'Bidang Sertifikasi', 'Manajemen Mutu', 'Bidang Skema'];
 
+  /* ---------- Pedoman kode jenis (dipakai nomor manual + tab Pedoman) ---------- */
+  // kode: [arti, contoh pakai, kategori yg cocok]
+  const JENIS = [
+    ['UND', 'Undangan', 'rapat, kegiatan, uji kompetensi', 'MNJ, KOR'],
+    ['ST', 'Surat tugas', 'penugasan asesor / panitia / petugas', 'ASR, KOR'],
+    ['SK', 'Keputusan', 'SK pengurus, SK asesor, SK TUK', 'LIS, ASR, TUK'],
+    ['PB', 'Pemberitahuan', 'penyampaian info resmi ke BNSP / unit', 'KOR'],
+    ['BA', 'Berita acara', 'verifikasi TUK, hasil asesmen', 'TUK, ASM'],
+    ['DH', 'Daftar hadir', 'rapat, uji kompetensi', 'MNJ, ASM'],
+    ['NOT', 'Notulen', 'hasil rapat, kaji ulang', 'MNJ'],
+    ['SOP', 'Prosedur mutu', 'SOP pelayanan, banding, keluhan', 'MUT'],
+    ['PM', 'Panduan mutu', 'panduan mutu LSP', 'MUT'],
+    ['IK', 'Instruksi kerja', 'petunjuk teknis pelaksanaan', 'MUT'],
+    ['FR', 'Formulir', 'FR.APL.01, FR.APL.02, dsb.', 'MUT, ASM'],
+    ['MUK', 'Materi uji', 'materi uji kompetensi per skema', 'SKM'],
+    ['SKM', 'Dokumen skema', 'skema okupasi / kualifikasi / klaster', 'SKM'],
+    ['SERT', 'Sertifikat', 'sertifikat asesor / lisensi', 'LIS, ASR'],
+    ['MOU', 'Kerja sama', 'MOU / PKS dengan mitra & TUK', 'LIS, KOR'],
+    ['LAP', 'Laporan', 'audit internal, kaji ulang, monev', 'MNJ, MUT'],
+    ['SM', 'Surat masuk', 'nomor agenda surat masuk (SM-###/tahun)', 'KOR']
+  ];
+  const jenisArti = (k) => ((JENIS.find(x => x[0] === k) || [])[1] || k);
+
   // [kat, judul, pemilik, terbit, sampai, status, revisi, tambahan]
   const D = [
     ['LIS', 'SK Rektor tentang Pendirian LSP UNIMED', 'Sekretariat', '2019-03-11', '', 'Berlaku', 1],
@@ -102,11 +125,14 @@
     ['MNJ', 'Undangan Rapat Pleno Hasil Uji Kompetensi', 'Sekretariat', '2026-10-09', '', 'Draf', 1, { surat: 1, alur: 'Draf', kode: '074/LSP-UNIMED/UND/X/2026', tpl: { id: 'undangan', data: { tanggal: '2026-10-09', perihal: 'Undangan Rapat Pleno Hasil Uji Kompetensi', tglAcara: '2026-10-20', pembuka: 'Sehubungan dengan telah dilaksanakannya uji kompetensi pada 17 Oktober 2026, kami mengundang Bapak/Ibu untuk hadir pada rapat pleno penetapan hasil uji kompetensi yang akan dilaksanakan pada:', acara: 'Laporan pelaksanaan uji kompetensi\nPenetapan keputusan sertifikasi\nTindak lanjut temuan penyaksian BNSP' } } }]
   ];
   const seq = { SURAT: 74, SM: 43 };
+  // Saran nomor manual: surat 075/... berikutnya; dokumen non-surat saran register, tetap bisa diketik ulang.
+  const saranSurat = (kode, t) => { t = t || HARI_INI; return `${pad(seq.SURAT + 1)}/LSP-UNIMED/${kode}/${romawi(+t.slice(5, 7))}/${t.slice(0, 4)}`; };
+  const nomorDipakai = (no) => DOCS.some(d => d.kode === no);
   let DOCS = D.map((d, i) => {
     const x = d[7] || {}, y = (d[3] || HARI_INI).slice(0, 4);
     if (!x.kode) seq[d[0]] = (seq[d[0]] || 0) + 1;
     return Object.assign({ id: i + 1, kode: x.kode || `LSP-UNIMED/${d[0]}/${pad(seq[d[0]])}/${y}`, kat: d[0], judul: d[1], pemilik: d[2], terbit: d[3], sampai: d[4], status: d[5], rev: d[6],
-      berkas: d[1].replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40) + '.pdf' }, x.surat ? { surat: true, alur: x.alur } : {}, x.tpl ? { tpl: x.tpl } : {});
+      berkas: d[1].replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40) + '.pdf', file_id: x.file_id || '', file_url: x.file_url || '' }, x.surat ? { surat: true, alur: x.alur } : {}, x.tpl ? { tpl: x.tpl } : {});
   });
 
   // Surat masuk
@@ -270,6 +296,7 @@
       <button data-v="masuk">Surat masuk <span class="n${smBuka ? ' hot' : ''}">${smBuka}</span></button>
       <button data-v="keluar">Surat keluar <span class="n${skTunggu ? ' hot' : ''}">${skTunggu}</span></button>
       <button data-v="templat">Templat dokumen</button>
+      <button data-v="pedoman">Pedoman penomoran</button>
       <div class="grp">Kategori</div>
       ${katLihat.map(k => `<button data-v="dokumen" data-k="${k[0]}">${esc(k[1])} <span class="n">${n(k[0])}</span></button>`).join('')}
       <div class="grp">Lainnya</div>
@@ -295,7 +322,7 @@
     document.querySelectorAll('.side button[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === VIEW && (VIEW !== 'dokumen' || (b.dataset.k || '') === FK)));
     const v = document.getElementById('view'), T = document.getElementById('title');
     const go = (root) => root.querySelectorAll('[data-go]').forEach(a => a.onclick = (e) => { e.preventDefault(); VIEW = a.dataset.go; FK = a.dataset.k || ''; render(); });
-    ({ ringkasan: vRingkasan, dokumen: vDokumen, arsip: vArsip, pengingat: vPengingat, agenda: vAgenda, masuk: vMasuk, keluar: vKeluar, templat: vTemplat, aktivitas: vAktivitas, pengguna: vPengguna }[VIEW] || vRingkasan)(v, T);
+    ({ ringkasan: vRingkasan, dokumen: vDokumen, arsip: vArsip, pengingat: vPengingat, agenda: vAgenda, masuk: vMasuk, keluar: vKeluar, templat: vTemplat, pedoman: vPedoman, aktivitas: vAktivitas, pengguna: vPengguna }[VIEW] || vRingkasan)(v, T);
     go(v);
   }
 
@@ -510,6 +537,21 @@
     draw();
   }
 
+  /* ---------- Pedoman penomoran ---------- */
+  function vPedoman(v, T) {
+    T.textContent = 'Pedoman penomoran dokumen';
+    v.innerHTML = `<p class="muted lead">Semua nomor <b>diketik manual sesuai buku agenda</b> — tidak ada nomor otomatis. Sistem hanya memberi <b>saran urutan berikutnya</b> dan menolak nomor yang sudah dipakai.</p>
+      <div class="panel"><h2>Pola nomor</h2>
+      <p><span class="code">001/LSP-UNIMED/JENIS/BulanRomawi/Tahun</span> untuk surat & dokumen keluar, mis. <span class="code">075/LSP-UNIMED/UND/X/2026</span>.</p>
+      <p><span class="code">LSP-UNIMED/KAT/JENIS/001/Tahun</span> untuk dokumen mutu/skema/asesmen bila perlu kode arsip internal, mis. <span class="code">LSP-UNIMED/MUT/SOP/003/2026</span>.</p>
+      <p><span class="code">SM-###/Tahun</span> untuk surat masuk sesuai nomor agenda, mis. <span class="code">SM-044/2026</span>.</p></div>
+      <div class="panel" style="margin-top:14px"><h2>Kode jenis (JENIS)</h2>
+      <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Arti</th><th>Contoh pakai</th><th>Kategori cocok</th></tr></thead><tbody>
+      ${JENIS.map(j => `<tr><td data-l="Kode"><b class="code">${j[0]}</b></td><td data-l="Arti">${esc(j[1])}</td><td data-l="Contoh">${esc(j[2])}</td><td data-l="Kategori">${esc(j[3])}</td></tr>`).join('')}
+      </tbody></table></div></div>
+      <div class="note" style="margin-top:14px"><b>Aturan:</b> urutan (001, 002, …) melanjutkan buku agenda berjalan per jenis per bulan — bukan per kategori. Bulan ditulis angka Romawi (I–XII). Nomor yang sudah dipakai tidak dapat dipakai ulang; ganti dengan urutan berikutnya.</div>`;
+  }
+
   /* ---------- Templat ---------- */
   function vTemplat(v, T) {
     T.textContent = 'Templat dokumen';
@@ -517,7 +559,7 @@
     const tplLihat = window.TEMPLAT.filter(t => bolehUbahKat(t.kat));
     const kelolaKop = bolehKelolaKop();
     v.innerHTML = `<p class="muted lead">Pilih templat, isi formulir singkat, dan dokumen tersusun lengkap dengan kop surat, nomor manual sesuai buku agenda, dan blok tanda tangan. Hasilnya dapat dicetak atau disimpan sebagai PDF.${tplLihat.length < window.TEMPLAT.length ? ' Templat di luar kategori Anda disembunyikan.' : ''}</p>
-      <div class="tpl-grid">${tplLihat.map(t => `<div class="panel tpl"><span class="chip">${t.surat ? 'Surat keluar' : 'Dokumen'}</span><h3>${esc(t.nama)}</h3><p class="muted">${esc(t.ket)}</p><div class="code muted" style="font-size:.78rem">${t.surat ? 'Nomor diketik manual' : `LSP-UNIMED/${t.kat}/${pad((seq[t.kat] || 0) + 1)}/${HARI_INI.slice(0, 4)}`}</div><button class="btn" data-t="${t.id}" type="button">Gunakan templat</button></div>`).join('') || '<div class="panel muted">Tidak ada templat untuk kategori Anda.</div>'}</div>
+      <div class="tpl-grid">${tplLihat.map(t => `<div class="panel tpl"><span class="chip">${t.surat ? 'Surat keluar' : 'Dokumen'}</span><h3>${esc(t.nama)}</h3><p class="muted">${esc(t.ket)}</p><div class="code muted" style="font-size:.78rem">Nomor diketik manual (lihat Pedoman penomoran)</div><button class="btn" data-t="${t.id}" type="button">Gunakan templat</button></div>`).join('') || '<div class="panel muted">Tidak ada templat untuk kategori Anda.</div>'}</div>
       <div class="panel" style="margin-top:14px"><h2>Kop surat & penanda tangan bawaan</h2><p class="muted" style="font-size:.88rem">Dipakai oleh semua templat. Hanya Admin dan Sekretariat yang dapat mengubah.</p>
         ${kelolaKop ? `<form class="form" id="fKop"><div class="row2"><label class="f">Baris 1 (lembaga)<input name="l1" value="${esc(K.l1)}"></label><label class="f">Baris 2 (universitas)<input name="l2" value="${esc(K.l2)}"></label></div>
         <div class="row2"><label class="f">Baris 3 (lisensi)<input name="l3" value="${esc(K.l3)}"></label><label class="f">Kota penandatanganan<input name="kota" value="${esc(K.kota)}"></label></div>
@@ -644,8 +686,9 @@
     const back = drawer(`<div class="code" style="color:var(--red)">${esc(d.kode)}</div><h2 style="font-size:1.25rem;margin-top:6px">${esc(d.judul)}</h2>${d.surat ? `<span class="badge ${alurB[d.alur]}">${d.alur}</span>` : `<span class="badge ${s[1]}">${s[0]}</span>`}
       ${aksi}
       <dl class="kv"><dt>Kategori</dt><dd>${esc(katNama(d.kat))}</dd><dt>Penanggung jawab</dt><dd>${esc(d.pemilik)}</dd><dt>Tanggal</dt><dd>${tgl(d.terbit)}</dd><dt>Berlaku sampai</dt><dd>${d.sampai ? tgl(d.sampai) : 'Tidak terbatas'}</dd><dt>Sumber</dt><dd>${d.tpl ? 'Dibuat dari templat ' + esc((window.TEMPLAT.find(t => t.id === d.tpl.id) || {}).nama || '') : 'Berkas diunggah'}</dd><dt>Masa simpan</dt><dd>${esc((KAT.find(k => k[0] === d.kat) || [])[3])}</dd><dt>Akses</dt><dd>${d.kat === 'ASM' || d.kat === 'ASR' ? 'Terbatas: Sekretariat, Sertifikasi, Manajemen Mutu' : 'Seluruh petugas LSP'}</dd></dl>
-      <div class="file"><i>PDF</i><div><b>${esc(d.berkas)}</b><div class="muted" style="font-size:.82rem">${d.tpl ? 'PDF disusun otomatis dari templat' : 'Berkas contoh — pada versi akhir tersimpan di Drive LSP'}</div></div></div>
-      <div class="acts">${d.tpl ? '<button class="btn" data-a="lihat">Lihat & cetak</button>' : ''}<button class="btn ghost" data-a="Unduhan dicatat (demo)">Unduh</button>${bisaUbah ? '<button class="btn ghost" data-a="Formulir revisi dibuka (demo)">Unggah revisi</button>' : ''}</div>
+      <div class="file"><i>PDF</i><div><b>${d.file_url ? `<a href="${esc(d.file_url)}" target="_blank" rel="noopener">${esc(d.berkas)}</a>` : esc(d.berkas)}</b><div class="muted" style="font-size:.82rem">${d.file_url ? 'Tersimpan di Drive LSP — klik nama berkas untuk membuka.' : (d.tpl ? 'PDF disusun otomatis dari templat' : 'Belum ada tautan berkas — tambahkan lewat Ubah data atau Unggah revisi.')}</div></div></div>
+      <div class="acts">${d.tpl ? '<button class="btn" data-a="lihat">Lihat & cetak</button>' : ''}${d.file_url ? `<a class="btn ghost" href="${esc(d.file_url)}" target="_blank" rel="noopener" data-a="unduh">Buka / unduh berkas</a>` : '<button class="btn ghost" data-a="tanpa-berkas">Unduh</button>'}${bisaUbah ? '<button class="btn ghost" data-a="revisi">Unggah revisi</button>' : ''}</div>
+      <p class="muted" style="font-size:.82rem">Unduh membuka berkas Drive; Unggah revisi menyimpan berkas baru sebagai Revisi ${d.rev + 1} dan menaikkan nomor revisi (riwayat lama tetap tercatat).</p>
       ${d.tpl ? `<h3>Pratinjau</h3><div class="mini"><div class="kertas">${htmlDok(d)}</div></div>` : ''}
       <h3 style="margin-top:16px">Riwayat revisi</h3><div class="ver">${vers}</div>`);
     const mini = back.querySelector('.mini');
@@ -662,12 +705,15 @@
       else if (act === 'edit') { if (!bolehKelolaArsip(d) && !bisaUbah) { toast('Di luar kategori Anda'); return; } tutupDrawer(); formEditDok(id); }
       else if (act === 'arsip') { if (!bolehKelolaArsip(d)) { toast('Hanya Admin/Sekretariat, atau pemilik dokumen di kategorinya'); return; } d.arsip = true; d.status = 'Berlaku'; if (!d.terbit) d.terbit = HARI_INI; catat('Mengarsipkan ' + d.kode); toast('Diarsipkan: ' + d.kode); shell(); detail(id); }
       else if (act === 'keluar-arsip') { if (!bolehKelolaArsip(d)) { toast('Hanya Admin/Sekretariat, atau pemilik dokumen di kategorinya'); return; } d.arsip = false; catat('Mengeluarkan dari arsip ' + d.kode); toast('Dikeluarkan dari arsip: ' + d.kode); shell(); detail(id); }
+      else if (act === 'tanpa-berkas') { toast('Belum ada berkas Drive untuk dokumen ini. Tambahkan lewat Ubah data atau Unggah revisi.'); return; }
+      else if (act === 'unduh') { catat('Mengunduh ' + d.kode); return; }
+      else if (act === 'revisi') { if (!bisaUbah) { toast('Di luar kategori Anda'); return; } tutupDrawer(); formRevisi(id); return; }
       else if (act === 'hapus') { if (!bolehKelolaArsip(d)) { toast('Hanya Admin/Sekretariat, atau pemilik dokumen di kategorinya'); return; } if (!confirm('Hapus ' + (d.surat ? 'surat ' : 'dokumen ') + d.kode + ' — ' + d.judul + '?' + (d.arsip ? ' (dokumen arsip)' : ''))) return; DOCS = DOCS.filter(x => x.id !== id); catat('Menghapus ' + d.kode); tutupDrawer(); shell(); toast('Dihapus: ' + d.kode); }
       else toast(act);
     });
   }
 
-  /* ---------- Ubah data dokumen (judul, kategori, penanggung jawab, tanggal) ---------- */
+  /* ---------- Ubah data dokumen (judul, kategori, penanggung jawab, tanggal, tautan) ---------- */
   function formEditDok(id) {
     const d = DOCS.find(x => x.id === id);
     if (!bolehUbahKat(d.kat)) { toast('Di luar kategori Anda'); return; }
@@ -677,14 +723,44 @@
       <label class="f">Kategori arsip<select name="kat">${katBoleh.map(k => `<option value="${k[0]}"${k[0] === d.kat ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select></label>
       <label class="f">Penanggung jawab<input name="pemilik" value="${esc(d.pemilik || '')}"></label>
       <div class="row2"><label class="f">Tanggal<input type="date" name="terbit" value="${esc(d.terbit || '')}"></label><label class="f">Berlaku sampai (opsional)<input type="date" name="sampai" value="${esc(d.sampai || '')}"></label></div>
+      <label class="f">Tautan berkas Drive (agar nama berkas bisa diklik)<input name="tautan" value="${esc(d.file_url || '')}" placeholder="https://drive.google.com/..."></label>
       <div><button class="btn" type="submit">Simpan perubahan</button></div></form>`);
     const f = back.querySelector('#fED');
     f.onsubmit = (e) => {
       e.preventDefault();
       const k = f.kat.value;
       if (!bolehUbahKat(k)) { toast('Kategori ' + k + ' di luar wewenang peran Anda'); return; }
-      Object.assign(d, { judul: f.judul.value.trim(), kat: k, pemilik: f.pemilik.value.trim() || d.pemilik, terbit: f.terbit.value, sampai: f.sampai.value });
+      Object.assign(d, { judul: f.judul.value.trim(), kat: k, pemilik: f.pemilik.value.trim() || d.pemilik, terbit: f.terbit.value, sampai: f.sampai.value, file_url: f.tautan.value.trim() });
       catat('Mengubah data ' + d.kode); tutupDrawer(); toast('Perubahan tersimpan: ' + d.kode); shell(); detail(id);
+    };
+  }
+
+  /* ---------- Unggah revisi: berkas baru -> Revisi berikutnya, riwayat lama tetap ---------- */
+  function formRevisi(id) {
+    const d = DOCS.find(x => x.id === id);
+    if (!bolehUbahKat(d.kat)) { toast('Di luar kategori Anda'); return; }
+    const back = drawer(`<h2>Unggah revisi ${d.rev + 1}</h2><p class="muted" style="margin-top:-6px">${esc(d.kode)} — ${esc(d.judul)}</p>
+      <p class="muted" style="font-size:.86rem">Revisi menaikkan nomor revisi (kini Rev. ${d.rev}) tanpa menghapus riwayat. Berkas tersimpan ke folder Drive kategori ${esc(d.kat)}.</p>
+      <form class="form" id="fR"><label class="f">Berkas revisi (maks 10 MB)<input type="file" name="berkas" required accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"></label>
+      <label class="f">atau tautan Drive<input name="tautan" placeholder="https://drive.google.com/..."></label>
+      <label class="f">Catatan revisi<input name="catatan" placeholder="mis. Penyesuaian MUK sesuai masukan BNSP"></label>
+      <div><button class="btn" type="submit" id="btnRev">Simpan revisi ${d.rev + 1}</button></div></form>`);
+    const f = back.querySelector('#fR');
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = back.querySelector('#btnRev'); btn.disabled = true; btn.textContent = 'Menyimpan…';
+      let file_id = d.file_id || '', file_nama = d.berkas, file_url = (f.tautan.value || '').trim();
+      try {
+        const fl = await bacaBerkas(f.berkas);
+        if (fl && !file_url) {
+          const up = await api('unggahBerkas', { data: { nama: fl.nama, mime: fl.mime, base64: fl.base64, kat: d.kat } });
+          file_id = up.file_id || file_id; file_nama = up.file_nama || fl.nama; file_url = up.file_url || file_url;
+        } else if (fl && file_url) { file_nama = fl.nama; }
+      } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = 'Simpan revisi ' + (d.rev + 1); return; }
+      if (!file_url && !file_nama) { toast('Pilih berkas atau isi tautan Drive.'); btn.disabled = false; btn.textContent = 'Simpan revisi ' + (d.rev + 1); return; }
+      Object.assign(d, { rev: d.rev + 1, terbit: HARI_INI, berkas: file_nama || d.berkas, file_id, file_url });
+      catat('Mengunggah revisi ' + d.rev + ' ' + d.kode + (f.catatan.value.trim() ? ' — ' + f.catatan.value.trim() : ''));
+      tutupDrawer(); toast('Revisi ' + d.rev + ' tersimpan: ' + d.kode); shell(); detail(id);
     };
   }
 
@@ -709,10 +785,11 @@
 
   /* Jembatan untuk editor templat (templat.js) */
   const API = {
-    hariIni: HARI_INI, KAT,
-    nomorSurat(kode, t) { t = t || HARI_INI; return `${pad(seq.SURAT + 1)}/LSP-UNIMED/${kode}/${romawi(+t.slice(5, 7))}/${t.slice(0, 4)}`; },
-    nomorDok(k) { return `LSP-UNIMED/${k}/${pad((seq[k] || 0) + 1)}/${HARI_INI.slice(0, 4)}`; },
+    hariIni: HARI_INI, KAT, JENIS, jenisArti,
+    saranSurat(kode, t) { return saranSurat(kode, t); },
+    nomorSurat(kode, t) { return saranSurat(kode, t); },
     nomorTerakhir(n) { return DOCS.filter(d => d.surat).map(d => d.kode).sort((a, b) => b.localeCompare(a)).slice(0, n || 5); },
+    nomorDipakai(no) { return nomorDipakai(no); },
     simpan(o) {
       const katTujuan = o.kat || (o.id && (DOCS.find(x => x.id === o.id) || {}).kat);
       if (katTujuan && !bolehUbahKat(katTujuan)) { toast('Kategori ' + katTujuan + ' di luar wewenang peran Anda'); return; }
@@ -723,8 +800,8 @@
         Object.assign(d, { judul: o.judul, kat: o.kat, tpl: o.tpl, terbit: o.tanggal, status: stt }); if (d.surat) d.alur = o.alur === 'Diajukan' ? 'Diajukan' : 'Draf';
         catat((d.alur === 'Diajukan' ? 'Mengajukan pengesahan ' : 'Memperbarui draf ') + d.kode);
       } else {
-        if (o.surat) seq.SURAT++; else seq[o.kat] = (seq[o.kat] || 0) + 1;
-        d = { id: DOCS.length + 1, kode: o.nomor, kat: o.kat, judul: o.judul, pemilik: 'Sekretariat', terbit: o.tanggal || HARI_INI, sampai: '', status: stt, rev: 1, berkas: o.judul.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40) + '.pdf', tpl: o.tpl };
+        const m = String(o.nomor || '').match(/^(\d+)/); if (m) seq.SURAT = Math.max(seq.SURAT || 0, +m[1]);
+        d = { id: DOCS.length + 1, kode: o.nomor, kat: o.kat, judul: o.judul, pemilik: (typeof bagianSaya === 'function' && bagianSaya()) || 'Sekretariat', terbit: o.tanggal || HARI_INI, sampai: '', status: stt, rev: 1, berkas: o.judul.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40) + '.pdf', tpl: o.tpl };
         if (o.surat) { d.surat = true; d.alur = o.alur; }
         DOCS.push(d); catat('Membuat ' + o.jenis.toLowerCase() + ' ' + d.kode + ' dari templat');
       }
@@ -734,32 +811,62 @@
     }
   };
 
-  /* ---------- Unggah berkas ---------- */
+  /* ---------- Unggah berkas (nomor manual + simpan ke Drive) ---------- */
+  // bacaBerkas: file input -> {nama, mime, base64} (base64 untuk dikirim ke backend unggahBerkas).
+  const bacaBerkas = (inp) => new Promise((res, rej) => {
+    const fl = inp.files && inp.files[0];
+    if (!fl) return res(null);
+    if (fl.size > 10 * 1024 * 1024) return rej(new Error('Berkas lebih dari 10 MB — unggah manual ke Drive lalu tempel link via Ubah data.'));
+    const r = new FileReader();
+    r.onload = () => res({ nama: fl.name, mime: fl.type || 'application/octet-stream', base64: String(r.result) });
+    r.onerror = () => rej(new Error('Gagal membaca berkas.'));
+    r.readAsDataURL(fl);
+  });
   function form(surat) {
     const katBoleh = KAT.filter(k => bolehUbahKat(k[0]));
     if (!katBoleh.length) { toast('Tidak ada kategori yang dapat Anda ubah'); return; }
-    const back = drawer(`<h2>Unggah berkas</h2><p class="muted" style="margin-top:-6px">Kategori dibatasi sesuai wewenang peran Anda (${esc(PERAN_AKTIF)}).</p>
-      <form class="form" id="fD">${surat ? '' : `<label class="f">Jenis<select name="jenis"><option value="dok">Dokumen (register LSP-UNIMED/kategori)</option><option value="surat">Surat keluar (nomor dari buku agenda)</option></select></label>`}
+    const back = drawer(`<h2>Unggah berkas</h2><p class="muted" style="margin-top:-6px">Nomor <b>diketik manual sesuai buku agenda</b> (lihat tab Pedoman penomoran). Berkas disimpan ke folder Drive LSP.</p>
+      <form class="form" id="fD">${surat ? '' : `<label class="f">Jenis<select name="jenis"><option value="dok">Dokumen (nomor manual buku agenda)</option><option value="surat">Surat keluar (nomor dari buku agenda)</option></select></label>`}
       <label class="f">Kategori arsip<select name="kat">${katBoleh.map(k => `<option value="${k[0]}"${surat && k[0] === 'KOR' ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select></label>
       <label class="f">Judul / perihal<input name="judul" required placeholder="mis. Berita Acara Asesmen Skema Web Developer"></label>
-      <label class="f" id="kodeJ" hidden>Kode jenis surat<input name="kj" value="PB" maxlength="5"><small class="muted" style="font-weight:400">mis. UND undangan, ST surat tugas, SK keputusan, PB pemberitahuan</small></label>
+      <label class="f">Kode jenis<select name="kj">${JENIS.map(j => `<option value="${j[0]}"${j[0] === 'PB' ? ' selected' : ''}>${j[0]} — ${esc(j[1])}</option>`).join('')}</select><small class="muted" style="font-weight:400">mis. UND undangan, ST surat tugas, SK keputusan, PB pemberitahuan. Daftar lengkap di tab Pedoman penomoran.</small></label>
+      <label class="f">Nomor dokumen (ketik manual)<input name="nomor" required placeholder="mis. 075/LSP-UNIMED/UND/X/2026"><small class="muted" style="font-weight:400" id="saranNo"></small></label>
       <div class="row2"><label class="f">Tanggal<input type="date" name="terbit" value="${HARI_INI}"></label><label class="f">Berlaku sampai (opsional)<input type="date" name="sampai"></label></div>
       <div class="row2"><label class="f">Penanggung jawab<select name="pemilik"><option>Sekretariat</option><option>Administrasi</option><option>Sertifikasi</option><option>Manajemen Mutu</option><option>Skema</option></select></label><label class="f">Status<select name="status"><option>Berlaku</option><option>Draf</option></select></label></div>
-      <label class="f">Berkas (PDF, DOCX, XLSX, JPG)<input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"></label>
-      <p class="note" id="noPrev"></p><div><button class="btn" type="submit">Simpan dokumen</button></div></form>`);
+      <label class="f">Berkas (PDF, DOCX, XLSX, JPG — maks 10 MB)<input type="file" name="berkas" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"></label>
+      <label class="f">atau tautan Drive (opsional, bila berkas > 10 MB)<input name="tautan" placeholder="https://drive.google.com/..."></label>
+      <p class="note" id="noPrev"></p><div><button class="btn" type="submit" id="btnSimpanDok">Simpan dokumen</button></div></form>`);
     const f = back.querySelector('#fD');
-    const isSurat = () => surat || (f.jenis && f.jenis.value === 'surat');
-    const nomor = () => isSurat() ? API.nomorSurat((f.kj.value || 'PB').toUpperCase().replace(/[^A-Z]/g, ''), f.terbit.value) : `LSP-UNIMED/${f.kat.value}/${pad((seq[f.kat.value] || 0) + 1)}/${(f.terbit.value || HARI_INI).slice(0, 4)}`;
-    const prev = () => { back.querySelector('#kodeJ').hidden = !isSurat(); back.querySelector('#noPrev').textContent = 'Nomor otomatis: ' + nomor(); };
-    f.addEventListener('input', prev); f.addEventListener('change', prev); prev();
-    f.onsubmit = (e) => {
-      e.preventDefault(); const k = f.kat.value, no = nomor(), sr = isSurat();
+    const saranNo = () => saranSurat((f.kj.value || 'PB').toUpperCase().replace(/[^A-Z]/g, ''), f.terbit.value || HARI_INI);
+    const prev = () => {
+      if (!f.nomor.value) f.nomor.value = saranNo();
+      back.querySelector('#saranNo').textContent = 'Saran urutan berikutnya: ' + saranNo() + ' — boleh diketik ulang sesuai buku agenda.';
+      back.querySelector('#noPrev').textContent = nomorDipakai(f.nomor.value.trim()) ? 'Nomor ini sudah dipakai — ganti dengan urutan lain.' : '';
+    };
+    f.kj.addEventListener('change', () => { f.nomor.value = saranNo(); prev(); });
+    f.terbit.addEventListener('change', () => { f.nomor.value = saranNo(); prev(); });
+    f.nomor.addEventListener('input', prev); prev();
+    f.onsubmit = async (e) => {
+      e.preventDefault(); const k = f.kat.value, no = f.nomor.value.trim(), sr = surat || (f.jenis && f.jenis.value === 'surat');
       if (!bolehUbahKat(k)) { toast('Kategori ' + k + ' di luar wewenang peran Anda'); return; }
+      if (!no) { toast('Isi nomor dokumen dulu (lihat Pedoman penomoran)'); return; }
+      if (nomorDipakai(no)) { toast('Nomor ' + no + ' sudah dipakai. Ganti dengan nomor lain.'); return; }
       if (sr) seq.SURAT++; else seq[k] = (seq[k] || 0) + 1;
-      const d = { id: DOCS.length + 1, kode: no, kat: k, judul: f.judul.value.trim(), pemilik: f.pemilik.value, terbit: f.terbit.value, sampai: f.sampai.value, status: f.status.value, rev: 1, berkas: 'berkas_baru.pdf' };
+      const btn = back.querySelector('#btnSimpanDok'); btn.disabled = true; btn.textContent = 'Menyimpan…';
+      let file_id = '', file_nama = '', file_url = (f.tautan.value || '').trim();
+      try {
+        const fl = await bacaBerkas(f.berkas);
+        if (fl) {
+          try {
+            const up = await api('unggahBerkas', { data: { nama: fl.nama, mime: fl.mime, base64: fl.base64, kat: k } });
+            file_id = up.file_id || ''; file_nama = up.file_nama || fl.nama; file_url = up.file_url || '';
+          } catch (err) { toast(err.message + ' Dokumen tetap dicatat tanpa tautan berkas.'); file_nama = fl.nama; }
+        }
+      } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = 'Simpan dokumen'; return; }
+      const d = { id: DOCS.length + 1, kode: no, kat: k, judul: f.judul.value.trim(), pemilik: f.pemilik.value, terbit: f.terbit.value, sampai: f.sampai.value, status: f.status.value, rev: 1, berkas: file_nama || 'berkas_baru.pdf', file_id, file_url };
       if (sr) { d.surat = true; d.alur = f.status.value === 'Berlaku' ? 'Disahkan' : 'Draf'; }
       DOCS.push(d); catat('Mengunggah ' + d.judul);
-      tutupDrawer(); toast('Dokumen tersimpan: ' + d.kode + ' (demo, tidak permanen)'); if (sr) pergi('keluar'); else pergi('dokumen', k);
+      tutupDrawer(); toast('Dokumen tersimpan: ' + d.kode + (file_url ? ' (berkas di Drive)' : ' (demo, tidak permanen)')); if (sr) pergi('keluar'); else pergi('dokumen', k);
     };
   }
 

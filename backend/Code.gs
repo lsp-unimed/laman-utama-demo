@@ -25,6 +25,7 @@ var CONFIG = {
   // Cara isi: buka spreadsheet Database Arsip > salin ID dari URL
   // https://docs.google.com/spreadsheets/d/ID_INI/edit > tempel di sini > Save > Run.
   // Kosongkan ('') hanya bila script ditempel via Extensions > Apps Script dari spreadsheet itu.
+  FOLDER_NAMA: 'Arsip LSP UNIMED', // folder Drive tujuan berkas (dibuat otomatis oleh siapkanDrive).
   SESSION_SECONDS: 21600, // 6 jam (maksimum CacheService)
   INGAT_HARI: 7,
   TZ: 'Asia/Jakarta'
@@ -45,7 +46,7 @@ function ss_() {
 // ===================== SKEMA =====================
 var SKEMA = {
   Dokumen: {
-    kolom: ['kode', 'kat', 'judul', 'pemilik', 'terbit', 'sampai', 'status', 'arsip', 'rev', 'alur', 'surat', 'tpl_id', 'tpl_data', 'file_id', 'file_nama', 'ket'],
+    kolom: ['kode', 'kat', 'judul', 'pemilik', 'terbit', 'sampai', 'status', 'arsip', 'rev', 'alur', 'surat', 'tpl_id', 'tpl_data', 'file_id', 'file_nama', 'file_url', 'ket'],
     publik: [],
     aturan: {
       kode:  { wajib: true, maks: 80, pesan: 'Kode/nomor dokumen wajib diisi.' },
@@ -62,7 +63,7 @@ var SKEMA = {
     izin: { list: 'admin', ambil: 'admin', tambah: 'admin', ubah: 'admin', hapus: 'admin' }
   },
   Revisi: {
-    kolom: ['dokumen_id', 'rev', 'tanggal', 'oleh', 'catatan', 'file_id'],
+    kolom: ['dokumen_id', 'rev', 'tanggal', 'oleh', 'catatan', 'file_id', 'file_nama', 'file_url'],
     publik: [],
     aturan: {
       dokumen_id: { wajib: true, maks: 20, pesan: 'dokumen_id wajib diisi.' },
@@ -188,6 +189,31 @@ var AKSI_KHUSUS = {
       var saran = String(urut).padStart(3, '0') + '/LSP-UNIMED' + tengah + bulan + '/' + tahun;
       var terakhir = semua.slice(-5).map(function (r) { return r.nomor; });
       return { saran: saran, urut: urut, terakhir: terakhir };
+    }
+  },
+  // Drive: siapkan folder arsip + subfolder per kategori. Jalankan sekali dari editor (Run).
+  siapkanDrive: {
+    izin: 'admin',
+    jalankan: function () {
+      return siapkanDrive_();
+    }
+  },
+  // Unggah berkas base64 ke Drive: {nama, mime, base64, kat} -> {file_id, file_nama, file_url}
+  // Batas praktis ~10 MB (Apps Script). Untuk berkas besar: unggah manual ke Drive lalu tempel link via Ubah data.
+  unggahBerkas: {
+    izin: 'admin',
+    jalankan: function (body) {
+      var d = body.data || {};
+      var nama = String(d.nama || 'berkas.pdf');
+      var mime = String(d.mime || 'application/pdf');
+      var b64 = String(d.base64 || '');
+      if (!b64) throw galat('Berkas kosong.');
+      var kat = String(d.kat || '');
+      var folder = folderArsip_(kat);
+      var blob = Utilities.newBlob(Utilities.base64Decode(b64.split(',').pop()), mime, nama);
+      var f = folder.createFile(blob);
+      try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+      return { file_id: f.getId(), file_nama: f.getName(), file_url: 'https://drive.google.com/file/d/' + f.getId() + '/view' };
     }
   },
   // Ringkasan dashboard: hitung dokumen per status, surat masuk terbuka, progres agenda.
@@ -801,6 +827,30 @@ function denganKunci(fn) {
   var kunci = LockService.getScriptLock();
   kunci.waitLock(10000);
   try { fn(); } finally { kunci.releaseLock(); }
+}
+
+/** Cari/buat folder Drive arsip + subfolder kategori. Dipanggil unggahBerkas & siapkanDrive. */
+function folderArsip_(kat) {
+  var root = DriveApp.getFoldersByName(CONFIG.FOLDER_NAMA);
+  var utama = root.hasNext() ? root.next() : DriveApp.createFolder(CONFIG.FOLDER_NAMA);
+  if (!kat) return utama;
+  var sub = utama.getFoldersByName(kat);
+  return sub.hasNext() ? sub.next() : utama.createFolder(kat);
+}
+
+/** Jalankan sekali dari editor: membuat folder Drive arsip + subfolder tiap kategori. */
+function siapkanDrive() {
+  var info = siapkanDrive_();
+  Logger.log('Folder Drive: ' + info.url);
+  return info;
+}
+
+function siapkanDrive_() {
+  var url = folderArsip_('').getUrl();
+  var kat = SKEMA.Dokumen.aturan.kat.pilihan || [];
+  kat.forEach(function (k) { folderArsip_(k); });
+  try { folderArsip_('Revisi'); } catch (e) {}
+  return { url: url, kategori: kat };
 }
 
 function hapusCache(nama) { CacheService.getScriptCache().remove('list:' + nama); }

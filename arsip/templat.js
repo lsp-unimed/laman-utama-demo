@@ -280,9 +280,10 @@
     ada = ada || null;
     const data = Object.assign(bawaan(t, API.hariIni), ada ? ada.data : {});
     let kat = ada ? ada.kat : t.kat;
-    const saran = () => (t.surat ? API.nomorSurat(t.kode, data.tanggal || API.hariIni) : API.nomorDok(kat));
-    const nomor = () => ada ? ada.nomor : (t.surat ? (data._nomor || '').trim() : API.nomorDok(kat));
-    const riwayatNo = () => (t.surat && !ada && API.nomorTerakhir) ? API.nomorTerakhir(5) : [];
+    const kodeJenis = () => t.kode || 'DOK';
+    const saran = () => (t.surat ? API.saranSurat(t.kode, data.tanggal || API.hariIni) : API.saranSurat(t.kode, data.tanggal || API.hariIni));
+    const nomor = () => ada ? ada.nomor : (data._nomor || '').trim();
+    const riwayatNo = () => (!ada && API.nomorTerakhir) ? API.nomorTerakhir(5) : [];
 
     // susun field: pasangan "half" digabung dalam satu baris
     let html = '', buf = [];
@@ -303,7 +304,7 @@
         <div class="ed-act"><button class="btn ghost" data-x>Batal</button><button class="btn ghost" data-print>Cetak / PDF</button><button class="btn ghost" data-save="Draf">Simpan draf</button>${t.surat ? '<button class="btn" data-save="Diajukan">Ajukan pengesahan</button>' : '<button class="btn" data-save="Berlaku">Simpan & arsipkan</button>'}</div></div>
       <div class="ed-tabs"><button class="on" data-tab="f">Isi formulir</button><button data-tab="p">Pratinjau</button></div>
       <div class="ed-body"><form class="ed-form form" autocomplete="off">
-        ${t.surat && !ada ? `<label class="f">Nomor surat (ketik manual)<input name="_nomor" value="${esc(saran())}" placeholder="mis. 075/LSP-UNIMED/UND/X/2026"><small>Saran urutan berikutnya: ${esc(saran())}. Nomor terakhir: ${(riwayatNo().map(esc).join(', ') || '—')}</small></label>` : `<div class="nobox"><span>Nomor ${t.surat ? 'surat' : 'dokumen'} (otomatis)</span><b id="edNo"></b><small>${ada ? 'Nomor sudah dikunci.' : 'Nomor dikunci saat disimpan, sehingga tidak ada nomor ganda.'}</small></div>`}
+        ${!ada ? `<label class="f">Nomor dokumen (ketik manual sesuai buku agenda)<input name="_nomor" value="${esc(data._nomor || saran())}" placeholder="mis. 075/LSP-UNIMED/${esc(kodeJenis())}/X/2026"><small>Saran urutan berikutnya: ${esc(saran())}. Nomor terakhir: ${(riwayatNo().map(esc).join(', ') || '—')}. Lihat tab Pedoman penomoran untuk kode jenis.</small></label>` : `<div class="nobox"><span>Nomor dokumen (sudah dikunci)</span><b id="edNo"></b><small>Nomor sudah dikunci.</small></div>`}
         <label class="f">Simpan di kategori<select name="_kat">${API.KAT.map(k => `<option value="${k[0]}"${k[0] === kat ? ' selected' : ''}>${esc(k[1])}</option>`).join('')}</select></label>
         ${html}
       </form><div class="ed-prev"><div class="skala"><div class="kertas" id="edKertas"></div></div></div></div></div>`);
@@ -332,8 +333,8 @@
       if (sv) {
         gambar();
         const no = nomor();
-        if (t.surat && !ada && !no) { alert('Isi nomor surat dulu.'); return; }
-        if (t.surat && !ada && API.nomorTerakhir && API.nomorTerakhir(500).includes(no)) { alert('Nomor ' + no + ' sudah dipakai. Ganti dengan nomor lain.'); return; }
+        if (!ada && !no) { alert('Isi nomor dokumen dulu (lihat Pedoman penomoran).'); return; }
+        if (!ada && API.nomorDipakai && API.nomorDipakai(no)) { alert('Nomor ' + no + ' sudah dipakai. Ganti dengan nomor lain.'); return; }
         tutup();
         API.simpan({ id: ada && ada.id, kat, judul: t.judul(data), nomor: no, surat: t.surat, jenis: t.nama, alur: sv.dataset.save, tanggal: data.tanggal, tpl: { id: t.id, data: Object.assign({}, data) } });
       }
