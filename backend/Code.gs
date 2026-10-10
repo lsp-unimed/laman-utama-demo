@@ -523,6 +523,14 @@ function aturSandi_(user, d) {
   return { ok: true };
 }
 
+/** Akun admin pertama TANPA parameter (tinggal Run): password acak tampil di Log Eksekusi. */
+function buatAdminPertama() {
+  var pw = Utilities.getUuid().replace(/-/g, '').slice(0, 10) + 'A1';
+  var hasil = buatAdminAwal('admin', pw, 'Admin Arsip');
+  Logger.log('Akun admin ' + hasil + '. Username: admin | Password: ' + pw + ' | Segera ganti setelah login via menu Pengguna.');
+  return hasil;
+}
+
 /** Jalankan sekali dari editor untuk membuat akun admin pertama: buatAdminAwal('admin', 'Ganti-Sandi-Min-8', 'Nama Admin'). */
 function buatAdminAwal(username, password, nama) {
   var u = String(username || '').trim().toLowerCase();
