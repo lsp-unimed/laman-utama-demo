@@ -21,10 +21,26 @@
  */
 
 var CONFIG = {
+  SPREADSHEET_ID: '', // WAJIB diisi bila script dibuat dari script.google.com (standalone).
+  // Cara isi: buka spreadsheet Database Arsip > salin ID dari URL
+  // https://docs.google.com/spreadsheets/d/ID_INI/edit > tempel di sini > Save > Run.
+  // Kosongkan ('') hanya bila script ditempel via Extensions > Apps Script dari spreadsheet itu.
   SESSION_SECONDS: 21600, // 6 jam (maksimum CacheService)
   INGAT_HARI: 7,
   TZ: 'Asia/Jakarta'
 };
+
+var SS_ = null;
+function ss_() {
+  if (SS_) return SS_;
+  if (CONFIG.SPREADSHEET_ID) {
+    SS_ = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    return SS_;
+  }
+  SS_ = SpreadsheetApp.getActive();
+  if (!SS_) throw galat('Spreadsheet tidak ketemu. Isi CONFIG.SPREADSHEET_ID dengan ID spreadsheet Database Arsip, lalu Save dan Run ulang. (Buka spreadsheet > salin ID dari URL /d/ID/edit)');
+  return SS_;
+}
 
 // ===================== SKEMA =====================
 var SKEMA = {
@@ -737,7 +753,7 @@ function bacaTabel(nama) {
 }
 
 function sheetTabel(nama) {
-  var ss = SpreadsheetApp.getActive();
+  var ss = ss_();
   var sh = ss.getSheetByName(nama) || ss.insertSheet(nama);
   var perlu = ['id', 'dibuat', 'diubah'].concat(SKEMA[nama].kolom);
   if (sh.getLastRow() === 0) {
